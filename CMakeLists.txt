@@ -36,15 +36,16 @@ option(NOMOS_RT_BUILD_TESTS "Build nomos-rt unit tests" OFF)
 # SQLite3 — system package on all target platforms (required by txlog).
 find_package(SQLite3 REQUIRED)
 
-# txlog-cpp — pulls in edn-cpp transitively.
-#   To use a local checkout: cmake -DTXLOG_CPP_DIR=/path/to/txlog-cpp ...
+# txlog — monorepo; the C++ library lives under cpp/.
+#   To use a local checkout: cmake -DTXLOG_CPP_DIR=/path/to/txlog/cpp ...
 if(DEFINED TXLOG_CPP_DIR)
     FetchContent_Declare(txlog-cpp SOURCE_DIR "${TXLOG_CPP_DIR}")
 else()
     FetchContent_Declare(txlog-cpp
-        GIT_REPOSITORY https://github.com/cljseq/txlog-cpp.git
-        GIT_TAG        v0.1.0
-        GIT_SHALLOW    TRUE)
+        GIT_REPOSITORY https://github.com/nomos-studio/txlog.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
+        SOURCE_SUBDIR  cpp)
 endif()
 set(TXLOG_CPP_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
 set(TXLOG_CPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
