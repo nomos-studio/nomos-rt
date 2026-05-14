@@ -1,0 +1,20 @@
+33e045a66333ca4a50f8b56d80e9964d35ba9060
+
+userspace-rcu (liburcu) library from repository found at:
+    https://github.com/urcu/userspace-rcu
+
+Vendored flavors: urcu-bp (all platforms), urcu-mb (Linux).
+
+include/urcu/ headers: annotate.h arch.h assert.h call-rcu.h compiler.h
+    debug.h defer.h flavor.h futex.h list.h pointer.h ref.h syscall-compat.h
+    system.h tls-compat.h uatomic.h uatomic_arch.h urcu-bp.h urcu-mb.h
+    urcu-memb.h urcu-poll.h wfcqueue.h
+include/urcu/arch/: aarch64.h gcc.h generic.h x86.h (others omitted)
+include/urcu/uatomic/: aarch64.h api.h builtins.h builtins-generic.h
+    builtins-x86.h gcc.h generic.h uassert.h x86.h (others omitted)
+include/urcu/static/: pointer.h urcu-bp.h urcu-common.h urcu-mb.h wfcqueue.h
+include/urcu/map/: clear.h urcu-bp.h urcu-mb.h urcu-memb.h
+src/: urcu-bp.c urcu.c urcu-call-rcu-impl.h urcu-defer-impl.h
+    urcu-poll-impl.h urcu-wait.h urcu-die.h urcu-utils.h
+    compat_futex.c compat-getcpu.h compat-smp.h
+config/: config-linux.h config-darwin.h (hand-written; not autoconf-generated)
