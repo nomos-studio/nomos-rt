@@ -212,6 +212,7 @@ add_library(nomos-rt STATIC
     src/segment_modulator.cpp
     src/shift_register_modulator.cpp
     src/slew_modulator.cpp
+    src/fractal_modulator.cpp
 )
 
 add_library(nomos::rt ALIAS nomos-rt)
