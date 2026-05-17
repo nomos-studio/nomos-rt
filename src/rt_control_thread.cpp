@@ -2,7 +2,9 @@
 #include <nomos/rt/ipc.hpp>
 #include <nomos/rt/rt_control_thread.hpp>
 
-#include "modulator_engine.hpp"
+#include <nomos/rt/modulator_engine.hpp>
+#include <nomos/rt/modulator_registry.hpp>
+#include "graph_modulator.hpp"
 #include "slope_modulator.hpp"
 #include "segment_modulator.hpp"
 
@@ -489,7 +491,45 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
 
             if (!defs.empty())
                 cfg_.mod_engine->start(std::move(id),
-                    std::make_unique<segment_modulator>(defs));
+                    std::make_unique<segment_modulator>(std::span{defs}));
+
+        } else if (type_name == "graph") {
+            const auto* graph_v = m.find_kw("graph");
+            if (!graph_v) break;
+
+            std::unordered_map<std::string, float> params;
+            if (const auto* pv = m.find_kw("params"); pv && pv->is<edn::map>()) {
+                for (const auto& [k, v] : pv->get<edn::map>().entries) {
+                    if (!k.is<edn::keyword>()) continue;
+                    float fv = 0.0f;
+                    if (v.is<double>())        fv = static_cast<float>(v.get<double>());
+                    else if (v.is<int64_t>())  fv = static_cast<float>(v.get<int64_t>());
+                    else continue;
+                    params[std::string(k.get<edn::keyword>().name)] = fv;
+                }
+            }
+
+            cfg_.mod_engine->start(std::move(id),
+                std::make_unique<graph_modulator>(
+                    parse_control_graph(*graph_v, std::move(params)),
+                    cfg_.mod_engine));
+
+        } else if (cfg_.ext_registry) {
+            // Extension type: factory constructs, then float params are applied generically.
+            auto mod = cfg_.ext_registry->make(type_name);
+            if (mod) {
+                for (const auto& [k, v] : m.entries) {
+                    if (!k.is<edn::keyword>()) continue;
+                    const std::string_view key = k.get<edn::keyword>().name;
+                    if (key == "id" || key == "type") continue;
+                    float fv = 0.0f;
+                    if (v.is<double>())        fv = static_cast<float>(v.get<double>());
+                    else if (v.is<int64_t>())  fv = static_cast<float>(v.get<int64_t>());
+                    else continue;
+                    mod->update(key, fv);
+                }
+                cfg_.mod_engine->start(std::move(id), std::move(mod));
+            }
         }
         break;
     }

@@ -155,6 +155,7 @@ add_library(nomos-rt STATIC
     src/osc_server.cpp
     src/audio_device.cpp
     src/modulator_engine.cpp
+    src/graph_modulator.cpp
     src/slope_modulator.cpp
     src/segment_modulator.cpp
     src/shift_register_modulator.cpp

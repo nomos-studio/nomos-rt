@@ -8,8 +8,11 @@
 #include <nomos/rt/session.hpp>
 #include <nomos/rt/spsc_queue.hpp>
 
-// Forward declaration — avoids pulling tides headers into all consumers.
-namespace nomos::rt { class modulator_engine; }
+// Forward declarations — avoid pulling rcu/urcu into consumers that only need the config.
+namespace nomos::rt {
+class modulator_engine;
+class modulator_registry;
+}
 
 #include <atomic>
 #include <mutex>
@@ -42,10 +45,11 @@ using param_queue = spsc_queue<param_event, param_queue_capacity>;
 class rt_control_thread {
   public:
     struct config {
-        std::string          socket_path;            // Unix domain socket path
-        std::string          db_path;                // txlog database path
-        sched_staging_queue* sched_staging{nullptr}; // null = immediate dispatch
-        modulator_engine*    mod_engine{nullptr};    // null = modulator msgs silently dropped
+        std::string          socket_path;             // Unix domain socket path
+        std::string          db_path;                 // txlog database path
+        sched_staging_queue* sched_staging{nullptr};  // null = immediate dispatch
+        modulator_engine*    mod_engine{nullptr};     // null = modulator msgs silently dropped
+        modulator_registry*  ext_registry{nullptr};   // user-defined modulator types; null = none
     };
 
     explicit rt_control_thread(config cfg, param_queue& queue, input_event_queue& in_queue);

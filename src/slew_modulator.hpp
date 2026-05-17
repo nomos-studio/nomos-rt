@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #pragma once
 
-#include "abstract_modulator.hpp"
+#include <nomos/rt/abstract_modulator.hpp>
 
 #include <string_view>
 

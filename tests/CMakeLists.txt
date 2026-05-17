@@ -2,6 +2,7 @@
 include(Catch)
 
 add_executable(nomos-rt-tests
+    test_graph_modulator.cpp
     test_modulator_engine.cpp
     test_slope_modulator.cpp
     test_segment_modulator.cpp

@@ -2,7 +2,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "modulator_engine.hpp"
+#include <nomos/rt/modulator_engine.hpp>
 
 #include <map>
 #include <memory>

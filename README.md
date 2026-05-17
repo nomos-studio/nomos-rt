@@ -8,11 +8,17 @@ Shared C++ runtime substrate for the [nomos-studio](https://github.com/nomos-stu
 |-----------|---------|-------------|
 | IPC channel | `nomos/rt/ipc.hpp`, `ipc_channel.hpp` | Unix domain socket framing; 8-byte header + EDN payload |
 | Session / txlog | `nomos/rt/session.hpp` | Opens a txlog SQLite database; maps SESSION-OPEN/CLOSE/REGISTER-SOURCE |
-| Control thread base | `nomos/rt/rt_control_thread.hpp` | Listens on the IPC socket; dispatches common message types; CRTP extension point for CLAP/aion-specific messages |
+| Control thread base | `nomos/rt/rt_control_thread.hpp` | Listens on the IPC socket; dispatches common message types; virtual extension point for CLAP/aion-specific messages |
 | Time identity | `nomos/rt/time_identity.hpp` | `(current, pending)` timeline pair; mirrors `nous.link`; fires pending on `apply_at` |
-| Modulator engine | _(private)_ | Runs autonomous RT modulators at event-loop block rate; routes normalised output to registered consumers |
-| Slope modulator | _(private)_ | Tides-inspired LFO; rate/shape/slope/smoothness/depth/bipolar params |
-| Segment modulator | _(private)_ | Stages-inspired multi-segment function generator; up to 36 segments; free-running via `loop=true` |
+| Abstract modulator | `nomos/rt/abstract_modulator.hpp` | Pure virtual interface (`tick` → `modulator_output`, `update`); base for all built-in and custom modulators |
+| Modulator engine | `nomos/rt/modulator_engine.hpp` | Runs autonomous RT modulators at event-loop block rate; RCU-protected table; zero-allocation hot path |
+| Modulator registry | `nomos/rt/modulator_registry.hpp` | Maps type-name strings to user-defined modulator factories; plug into `rt_control_thread::config::ext_registry` |
+| Slope modulator | _(private)_ | First-principles LFO; rate/shape/slope/smoothness/depth/bipolar params |
+| Segment modulator | _(private)_ | Multi-segment function generator; up to 36 segments; free-running via `loop=true` |
+| Slew modulator | _(private)_ | Slew-rate limiter / lag processor; `rise` and `fall` time params |
+| Shift-register modulator | _(private)_ | Looping shift register with probability; voltage-controlled pseudo-randomness |
+| Fractal modulator | _(private)_ | Recursive subdivision curve; `depth` and `roughness` params |
+| Stochastic modulator | _(private)_ | Sample-and-hold with configurable probability distribution |
 | SPSC queue | `nomos/rt/spsc_queue.hpp` | Lock-free single-producer/single-consumer ring buffer; power-of-two capacity |
 | MIDI I/O | _(private)_ | RtMidi wrapper; `open-input!` / `open-output!`; push-handler model |
 | OSC server | _(private)_ | UDP receive thread; handler dispatch |
@@ -47,7 +53,7 @@ Common message types (shared by kairos and aion):
 | `0x43` | `MSG-MIDI-IN` | EDN raw MIDI bytes |
 | `0x44` | `MSG-WASM-HOT-SWAP` | EDN `{:node-id :kw :wasm-path "..."}` |
 | `0x45` | `MSG-SCHEDULE-BUNDLE` | EDN `{:at-beat D :events [...]}` |
-| `0x46` | `MSG-MODULATOR-START` | EDN `{:id :kw :type :slope\|:segment :rate 1.0 ...}` |
+| `0x46` | `MSG-MODULATOR-START` | EDN `{:id :kw :type :slope\|:segment\|:slew\|... :rate 1.0 ...}` |
 | `0x47` | `MSG-MODULATOR-STOP` | EDN `{:id :kw}` |
 | `0x48` | `MSG-MODULATOR-UPDATE` | EDN `{:id :kw :key "rate" :value 0.5}` |
 | `0x50` | `MSG-TICK` | EDN `{:beat D :tick-n N}` pushed on each 24 PPQN tick |
@@ -77,24 +83,93 @@ struct time_identity {
 
 ## Modulators
 
-RT modulators run autonomously at event-loop block rate — no per-tick IPC.
+RT modulators run autonomously at event-loop block rate — no per-tick IPC round-trip.
+
+### Modulator output
+
+All modulators return a `modulator_output` struct:
 
 ```cpp
-// Start a slope (Tides-inspired) LFO via the engine:
+struct modulator_output {
+    float    cv{0.0f};    // primary CV: normalised [-1,1] bipolar or [0,1] unipolar
+    float    aux{0.0f};   // secondary output (phase, ramp, etc.)
+    bool     gate{false}; // gate high on cycle reset / trigger events
+    bool     gate2{false};// secondary gate (e.g. end-of-cycle for segment modulators)
+    uint32_t state{0};    // modulator-specific state word
+};
+```
+
+### Using the engine
+
+```cpp
+#include <nomos/rt/modulator_engine.hpp>
+
+// Start modulators (built-in types are constructed via IPC from nous;
+// the engine can also be driven directly in tests or embedded contexts):
 engine.start("filter-lfo", std::make_unique<slope_modulator>());
 engine.update_param("filter-lfo", "rate", 0.5f);    // 0.5 Hz
 engine.update_param("filter-lfo", "depth", 0.8f);
 
-// Each block:
-engine.tick(current_beat, tick_rate_hz, [&](const std::string& id, float v) {
-    // v is normalised: [-1, 1] bipolar or [0, 1] unipolar
-    route_to_param(id, v);
-});
+// Each block — zero std::function overhead; Fn is a template parameter:
+engine.tick(current_beat, tick_rate_hz,
+    [&](const std::string& id, const nomos::rt::modulator_output& out) {
+        route_cv(id, out.cv);
+        if (out.gate) trigger_env(id);
+    });
 ```
 
-Slope modulator parameters: `rate` (Hz, 0.001–100), `shape` [-1..1], `slope` [-1..1], `smoothness` [-1..1], `depth` [0..1], `bipolar` (1.0 = bipolar).
+In kairos the tick callback writes directly into the CLAP `clap_event_param_value` queue, giving sample-accurate parameter animation with no scheduler jitter.
 
-Segment modulator: up to 36 segments, each with `type` (`:ramp`/`:step`/`:hold`/`:alt`), `primary` [0..1], `secondary` [0..1], `loop` bool. Parameters updated via `"segment_N_primary"` / `"segment_N_secondary"` keys.
+### Built-in modulator parameters
+
+**Slope** (`type: :slope`): `rate` (Hz, 0.001–100), `shape` [-1..1], `slope` [-1..1], `smoothness` [-1..1], `depth` [0..1], `bipolar` (1.0 = bipolar output).
+
+**Segment** (`type: :segment`): up to 36 segments, each with `type` (`:ramp`/`:step`/`:hold`/`:alt`), `primary` [0..1], `secondary` [0..1], `loop` bool. Updated via `"segment_N_primary"` / `"segment_N_secondary"` keys.
+
+**Slew** (`type: :slew`): `rise` (seconds, 0..10), `fall` (seconds, 0..10), `target` [0..1].
+
+**Shift register** (`type: :shift-register`): `length` (int, 1–32), `probability` [0..1], `seed` (float, used as initial value).
+
+**Fractal** (`type: :fractal`): `depth` (int, 1–8), `roughness` [0..1], `rate` (Hz).
+
+**Stochastic** (`type: :stochastic`): `rate` (Hz), `probability` [0..1], `min` [0..1], `max` [0..1].
+
+### Custom modulator types
+
+Implement `abstract_modulator` and register a factory:
+
+```cpp
+#include <nomos/rt/abstract_modulator.hpp>
+#include <nomos/rt/modulator_registry.hpp>
+
+class my_modulator final : public nomos::rt::abstract_modulator {
+public:
+    nomos::rt::modulator_output tick(double beat, float tick_rate_hz) override {
+        // ... compute output ...
+        return {.cv = value_};
+    }
+    void update(std::string_view key, float value) override {
+        if (key == "speed") speed_ = value;
+    }
+private:
+    float speed_{1.0f};
+    float value_{0.0f};
+};
+
+// Register so MSG-MODULATOR-START {:type :my-modulator ...} works from nous:
+nomos::rt::modulator_registry registry;
+registry.register_type("my-modulator", []() {
+    return std::make_unique<my_modulator>();
+});
+
+// Pass into rt_control_thread:
+nomos::rt::rt_control_thread::config cfg;
+cfg.socket_path  = "/tmp/nomos.sock";
+cfg.mod_engine   = &engine;
+cfg.ext_registry = &registry;
+```
+
+Float-typed EDN parameters in the `:start` message are automatically applied via `update()` after construction.
 
 ## Consuming nomos-rt
 
@@ -108,11 +183,11 @@ FetchContent_Declare(nomos-rt
 set(NOMOS_RT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(nomos-rt)
 
-# Public API (IPC types, time_identity, spsc_queue, session, etc.):
+# Public API — IPC types, time_identity, spsc_queue, session, modulator interface:
 target_link_libraries(my-exe PRIVATE nomos::rt)
 
-# Also link this to access private implementation headers (link_peer, midi_io,
-# osc_server, modulator types) — intended for thin executables like kairos/aion:
+# Also link this to access private implementation headers (concrete modulator types,
+# link_peer, midi_io, osc_server) — intended for thin executables like kairos/aion:
 target_link_libraries(my-exe PRIVATE nomos::rt-exe-headers)
 ```
 
@@ -132,7 +207,7 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-39 tests; covers modulator engine, slope/segment modulators, spsc_queue, and time_identity.
+122 tests; covers all six modulator types, modulator engine, spsc_queue, and time_identity.
 
 ## Dependencies
 
@@ -145,7 +220,6 @@ ctest --preset dev
 | [RtAudio](https://github.com/thestk/rtaudio) | FetchContent | MIT |
 | [Ableton Link](https://github.com/Ableton/link) | FetchContent | GPL-2.0-or-later |
 | liburcu (urcu-bp) | vendored in `third_party/` | LGPL-2.1-or-later |
-| Mutable Instruments Tides / Stages | vendored in `vendor/mi/` | MIT |
 | [Catch2](https://github.com/catchorg/Catch2) | FetchContent (tests only) | BSL-1.0 |
 
 SQLite3 is required as a system package (`find_package(SQLite3 REQUIRED)`).
