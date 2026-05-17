@@ -8,12 +8,13 @@
 #include <vector>
 
 using nomos::rt::segment_modulator;
+using seg_type = segment_modulator::type;
 
 namespace {
 
 segment_modulator make_single_ramp() {
     return segment_modulator({{
-        stages::segment::TYPE_RAMP,
+        seg_type::ramp,
         /*primary=*/   0.5f,
         /*secondary=*/ 0.5f,
         /*loop=*/      true,
@@ -69,7 +70,6 @@ TEST_CASE("segment_modulator: update segment_0_secondary does not crash", "[segm
 
 TEST_CASE("segment_modulator: segment param clamped to [0, 1]", "[segment_modulator]") {
     auto mod = make_single_ramp();
-    // Should not crash and produce finite output at clamped extremes.
     REQUIRE_NOTHROW(mod.update("segment_0_primary", -0.5f));
     REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
     REQUIRE_NOTHROW(mod.update("segment_0_primary", 1.5f));
@@ -78,7 +78,6 @@ TEST_CASE("segment_modulator: segment param clamped to [0, 1]", "[segment_modula
 
 TEST_CASE("segment_modulator: out-of-range segment index is a no-op", "[segment_modulator]") {
     auto mod = make_single_ramp();
-    // Segment 5 does not exist in a 1-segment modulator.
     REQUIRE_NOTHROW(mod.update("segment_5_primary", 0.5f));
     REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
 }
@@ -91,9 +90,9 @@ TEST_CASE("segment_modulator: unknown key is a no-op", "[segment_modulator]") {
 
 TEST_CASE("segment_modulator: multi-segment construction does not crash", "[segment_modulator]") {
     const std::vector<segment_modulator::segment_def> defs = {
-        {stages::segment::TYPE_RAMP, 0.3f, 0.5f, false},
-        {stages::segment::TYPE_HOLD, 0.7f, 0.5f, false},
-        {stages::segment::TYPE_RAMP, 0.5f, 0.5f, true},
+        {seg_type::ramp, 0.3f, 0.5f, false},
+        {seg_type::hold, 0.7f, 0.5f, false},
+        {seg_type::ramp, 0.5f, 0.5f, true},
     };
     segment_modulator mod(defs);
 
@@ -108,7 +107,7 @@ TEST_CASE("segment_modulator: multi-segment construction does not crash", "[segm
 
 TEST_CASE("segment_modulator: step segment output in [0, 1]", "[segment_modulator]") {
     const std::vector<segment_modulator::segment_def> defs = {
-        {stages::segment::TYPE_STEP, 0.8f, 0.5f, true},
+        {seg_type::step, 0.8f, 0.5f, true},
     };
     segment_modulator mod(defs);
 
@@ -117,4 +116,38 @@ TEST_CASE("segment_modulator: step segment output in [0, 1]", "[segment_modulato
         REQUIRE(v >= 0.0f);
         REQUIRE(v <= 1.0f);
     }
+}
+
+TEST_CASE("segment_modulator: alt segment alternates between primary and secondary", "[segment_modulator]") {
+    const std::vector<segment_modulator::segment_def> defs = {
+        {seg_type::alt, 0.8f, 0.2f, true},
+    };
+    segment_modulator mod(defs);
+    mod.update("rate", 1.0f);
+
+    // Run more than two full cycles; collect all distinct values.
+    bool saw_08 = false, saw_02 = false;
+    for (int i = 0; i < 300; ++i) {
+        const float v = mod.tick(0.0, 100.0f);
+        if (v >= 0.79f) saw_08 = true;
+        if (v <= 0.21f) saw_02 = true;
+    }
+    REQUIRE(saw_08);
+    REQUIRE(saw_02);
+}
+
+TEST_CASE("segment_modulator: ramp segment varies within cycle", "[segment_modulator]") {
+    const std::vector<segment_modulator::segment_def> defs = {
+        {seg_type::ramp, 1.0f, 0.5f, true},
+    };
+    segment_modulator mod(defs);
+    mod.update("rate", 1.0f);
+
+    float min_v = 1.0f, max_v = 0.0f;
+    for (int i = 0; i < 200; ++i) {
+        const float v = mod.tick(0.0, 100.0f);
+        if (v < min_v) min_v = v;
+        if (v > max_v) max_v = v;
+    }
+    REQUIRE(max_v > min_v + 0.1f);
 }

@@ -451,11 +451,11 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
             if (!segs_v || !segs_v->is<edn::vector>())
                 break;
 
-            static const std::unordered_map<std::string, stages::segment::Type> type_map{
-                {"ramp", stages::segment::TYPE_RAMP},
-                {"step", stages::segment::TYPE_STEP},
-                {"hold", stages::segment::TYPE_HOLD},
-                {"alt",  stages::segment::TYPE_ALT},
+            static const std::unordered_map<std::string, segment_modulator::type> type_map{
+                {"ramp", segment_modulator::type::ramp},
+                {"step", segment_modulator::type::step},
+                {"hold", segment_modulator::type::hold},
+                {"alt",  segment_modulator::type::alt},
             };
 
             std::vector<segment_modulator::segment_def> defs;
@@ -467,7 +467,7 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
 
                 if (const auto* t = sm.find_kw("type"); t && t->is<edn::keyword>()) {
                     auto it = type_map.find(std::string{t->get<edn::keyword>().name});
-                    if (it != type_map.end()) def.type = it->second;
+                    if (it != type_map.end()) def.kind = it->second;
                 }
 
                 auto get_sf = [&](const char* kw, float d) -> float {

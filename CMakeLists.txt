@@ -134,59 +134,6 @@ endif()
 include(${abl-link_SOURCE_DIR}/AbletonLinkConfig.cmake)
 
 # ---------------------------------------------------------------------------
-# mi-tides — Tides-inspired oscillator/function-generator (MIT).
-# ---------------------------------------------------------------------------
-
-add_library(mi-tides STATIC
-    vendor/mi/tides/generator.cc
-    vendor/mi/tides/resources.cc
-)
-
-target_include_directories(mi-tides
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/mi>
-)
-
-set_target_properties(mi-tides PROPERTIES
-    CXX_STANDARD          17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS        OFF
-)
-
-target_compile_options(mi-tides PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-w>
-    $<$<CXX_COMPILER_ID:MSVC>:/w>
-)
-
-# ---------------------------------------------------------------------------
-# mi-stages — Stages-inspired segment generator (MIT).
-# ---------------------------------------------------------------------------
-
-add_library(mi-stages STATIC
-    vendor/mi/stages/segment_generator.cc
-    vendor/mi/stages/resources.cc
-    vendor/mi/tides2/ramp/ramp_extractor.cc
-    vendor/mi/stmlib/dsp/units.cc
-    vendor/mi/stmlib/utils/random.cc
-)
-
-target_include_directories(mi-stages
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/mi>
-)
-
-set_target_properties(mi-stages PROPERTIES
-    CXX_STANDARD          17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS        OFF
-)
-
-target_compile_options(mi-stages PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-w>
-    $<$<CXX_COMPILER_ID:MSVC>:/w>
-)
-
-# ---------------------------------------------------------------------------
 # nomos-rt — shared runtime substrate.
 #
 # Contains: IPC channel, session (txlog), rt_control_thread base, Link peer,
@@ -213,6 +160,7 @@ add_library(nomos-rt STATIC
     src/shift_register_modulator.cpp
     src/slew_modulator.cpp
     src/fractal_modulator.cpp
+    src/stochastic_modulator.cpp
 )
 
 add_library(nomos::rt ALIAS nomos-rt)
@@ -224,10 +172,6 @@ target_include_directories(nomos-rt
         src
 )
 
-target_include_directories(nomos-rt SYSTEM PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/mi>
-)
-
 target_link_libraries(nomos-rt
     PUBLIC
         txlog::txlog
@@ -236,9 +180,6 @@ target_link_libraries(nomos-rt
         Ableton::Link
         rtmidi
         rtaudio
-    PRIVATE
-        mi-tides
-        mi-stages
 )
 
 set_target_properties(nomos-rt PROPERTIES
@@ -262,9 +203,6 @@ add_library(nomos-rt-exe-headers INTERFACE)
 add_library(nomos::rt-exe-headers ALIAS nomos-rt-exe-headers)
 target_include_directories(nomos-rt-exe-headers INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-)
-target_include_directories(nomos-rt-exe-headers SYSTEM INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/mi>
 )
 
 # ---------------------------------------------------------------------------

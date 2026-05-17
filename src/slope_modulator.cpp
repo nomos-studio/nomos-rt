@@ -1,84 +1,66 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "slope_modulator.hpp"
 
-#include "tides/generator.h"
-
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
+#include <numbers>
 
 namespace nomos::rt {
 
-// Pitch-to-frequency calibration for tides::Generator at RANGE_MEDIUM:
-//   set_pitch(7680) at firmware SR 31250 Hz → ≈ 2.15 Hz
-//
-// To hit rate_hz at a virtual SR of tick_rate_hz:
-//   pitch = 7680 + kOctave * log2(rate_hz * 31250 / (CALIB_HZ * tick_rate_hz))
-//
-// kOctave = 12 * 128 = 1536
-static constexpr float kFirmwareSR  = 31250.0f;
-static constexpr float kCalibHzAt7680 = 2.15f; // Hz at pitch=7680, RANGE_MEDIUM, 31250 SR
-static constexpr float kOctave       = 1536.0f;  // semitone units per octave
-static constexpr float kCalibPitch   = 7680.0f;
-
-slope_modulator::slope_modulator() {
-    gen_.Init();
-    gen_.set_range(tides::GENERATOR_RANGE_MEDIUM);
-    gen_.set_mode(tides::GENERATOR_MODE_LOOPING);
-    gen_.set_shape(0);
-    gen_.set_slope(0);
-    gen_.set_smoothness(0);
-    // Pre-render so the first playback block is ready.
-    gen_.Process();
-}
+namespace {
+constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+} // namespace
 
 float slope_modulator::tick(double /*beat*/, float tick_rate_hz) {
-    if (tick_rate_hz != last_tick_rate_) {
-        apply_rate(tick_rate_hz);
-        last_tick_rate_ = tick_rate_hz;
+    if (tick_rate_hz <= 0.0f)
+        return last_output_;
+
+    phase_ += rate_ / tick_rate_hz;
+    if (phase_ >= 1.0f) phase_ -= 1.0f;
+
+    // Slope skew: map raw phase to a skewed phase where the peak occurs at
+    // `attack` instead of 0.5.  attack ∈ [0.01, 0.99].
+    const float attack = std::clamp(0.5f + slope_ * 0.49f, 0.01f, 0.99f);
+    float p;
+    if (phase_ < attack)
+        p = phase_ / attack * 0.5f;
+    else
+        p = 0.5f + (phase_ - attack) / (1.0f - attack) * 0.5f;
+    // p ∈ [0, 1]; peak at p = 0.5
+
+    // Shape morph: triangle → sine → peaked exponential.
+    const float tri   = (p < 0.5f) ? p * 2.0f : (1.0f - p) * 2.0f;
+    const float sin_v = 0.5f - 0.5f * std::cos(kTwoPi * p);
+
+    float output;
+    if (shape_ <= 0.0f)
+        output = tri + (shape_ + 1.0f) * (sin_v - tri);  // lerp tri→sine
+    else
+        output = std::pow(std::max(sin_v, 1e-6f), 1.0f + shape_ * 2.0f); // sine→peaked
+
+    // Smoothness: < 0 → one-pole LP; > 0 → wavefold.
+    if (smoothness_ < 0.0f) {
+        const float c = 1.0f + smoothness_;  // 0 at -1, 1 at 0
+        smooth_state_ += c * c * (output - smooth_state_);
+        output = smooth_state_;
+    } else if (smoothness_ > 0.0f) {
+        float x = output * (1.0f + smoothness_ * 3.0f);
+        x = std::fmod(x, 2.0f);
+        if (x > 1.0f) x = 2.0f - x;
+        output = x;
     }
 
-    // Ensure next block is rendered before we consume from it.
-    gen_.Process();
-
-    // Consume one virtual sample; control=0 means free-running looping.
-    const tides::GeneratorSample& s = gen_.Process(static_cast<uint8_t>(0));
-
-    if (bipolar_)
-        return static_cast<float>(s.bipolar) * (1.0f / 32768.0f) * depth_;
-    else
-        return static_cast<float>(s.unipolar) * (1.0f / 65535.0f) * depth_;
+    output = bipolar_ ? output * 2.0f - 1.0f : output;
+    return last_output_ = output * depth_;
 }
 
 void slope_modulator::update(std::string_view key, float value) {
-    if (key == "rate") {
-        rate_hz_ = std::clamp(value, 0.001f, 100.0f);
-        last_tick_rate_ = 0.0f; // force recalibration on next tick
-    } else if (key == "shape") {
-        shape_ = std::clamp(value, -1.0f, 1.0f);
-        gen_.set_shape(static_cast<int16_t>(shape_ * 32767.0f));
-    } else if (key == "slope") {
-        slope_ = std::clamp(value, -1.0f, 1.0f);
-        gen_.set_slope(static_cast<int16_t>(slope_ * 32767.0f));
-    } else if (key == "smoothness") {
-        smoothness_ = std::clamp(value, -1.0f, 1.0f);
-        gen_.set_smoothness(static_cast<int16_t>(smoothness_ * 32767.0f));
-    } else if (key == "depth") {
-        depth_ = std::clamp(value, 0.0f, 1.0f);
-    } else if (key == "bipolar") {
-        bipolar_ = (value >= 0.5f);
-    }
-}
-
-void slope_modulator::apply_rate(float tick_rate_hz) {
-    if (tick_rate_hz <= 0.0f)
-        return;
-    // See calibration note at top of file.
-    const float pitch_f =
-        kCalibPitch + kOctave * std::log2(rate_hz_ * kFirmwareSR / (kCalibHzAt7680 * tick_rate_hz));
-    const auto pitch = static_cast<int16_t>(
-        std::clamp(pitch_f, static_cast<float>(INT16_MIN), static_cast<float>(INT16_MAX)));
-    gen_.set_pitch(pitch);
+    if      (key == "rate")       rate_       = std::clamp(value, 0.001f, 100.0f);
+    else if (key == "shape")      shape_      = std::clamp(value, -1.0f, 1.0f);
+    else if (key == "slope")      slope_      = std::clamp(value, -1.0f, 1.0f);
+    else if (key == "smoothness") smoothness_ = std::clamp(value, -1.0f, 1.0f);
+    else if (key == "depth")      depth_      = std::clamp(value, 0.0f,  1.0f);
+    else if (key == "bipolar")    bipolar_    = (value >= 0.5f);
 }
 
 } // namespace nomos::rt

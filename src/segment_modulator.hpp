@@ -3,40 +3,37 @@
 
 #include "abstract_modulator.hpp"
 
-#include "stages/segment_generator.h"
-
 #include <string_view>
 #include <vector>
 
 namespace nomos::rt {
 
-// Stages-inspired multi-segment function generator / LFO.
+// Multi-segment function generator / LFO.
 //
-// Wraps a single stages::SegmentGenerator which supports up to
-// kMaxNumSegments=36 segments — equivalent to chaining 6 hardware Stages
-// modules.  No instance coordination is needed; the class handles the full
-// chain natively.
+// N segments (up to 36) run in sequence, each occupying an equal share of the
+// total period.  Output is unipolar [0, 1] before depth scaling.  The generator
+// always free-runs (loops continuously).
 //
-// Each segment is described by:
-//   type      — :ramp | :step | :hold | :alt
-//   primary   — Time (ramp) | Level (hold/step)   range [0, 1]
-//   secondary — Shape (ramp/step) | Time (hold)   range [0, 1]
-//   loop      — if true on the last segment, the voice free-runs
+// Segment types:
+//   ramp — linearly interpolates from the previous segment's end value to primary
+//   step — immediate jump to primary, held for the segment duration
+//   hold — holds the value at the start of this segment (no change)
+//   alt  — alternates between primary and secondary on each successive cycle
 //
-// update() keys:
-//   "segment_N_primary"   — update primary of segment N (0-indexed)
-//   "segment_N_secondary" — update secondary of segment N
-//   "depth"               — output scale [0..1] (default 1.0)
-//
-// Triggering is not yet implemented; set loop=true on the last segment for
-// free-running LFO behaviour.
+// Parameters (via update()):
+//   "rate"                — full-cycle rate in Hz  [0.001, 100]  (default 1.0)
+//   "segment_N_primary"   — primary value of segment N  [0, 1]
+//   "segment_N_secondary" — secondary value of segment N  [0, 1]
+//   "depth"               — output scale  [0, 1]  (default 1.0)
 class segment_modulator final : public abstract_modulator {
 public:
+    enum class type { ramp, step, hold, alt };
+
     struct segment_def {
-        stages::segment::Type type{stages::segment::TYPE_RAMP};
-        float                 primary{0.5f};    // [0, 1]
-        float                 secondary{0.5f};  // [0, 1]
-        bool                  loop{false};
+        type  kind{type::ramp};
+        float primary{0.5f};
+        float secondary{0.5f};
+        bool  loop{false};  // reserved — generator always loops
     };
 
     explicit segment_modulator(const std::vector<segment_def>& segments);
@@ -45,15 +42,17 @@ public:
     void  update(std::string_view key, float value) override;
 
 private:
-    void reconfigure();
+    static constexpr int kMaxSegments = 36;
 
-    stages::SegmentGenerator gen_;
     std::vector<segment_def> defs_;
-    float                    depth_{1.0f};
+    float depth_{1.0f};
+    float rate_{1.0f};
 
-    // Single-sample output buffer.
-    stages::SegmentGenerator::Output out_{};
-    stmlib::GateFlags                gate_{0};
+    float phase_{0.0f};
+    int   cur_seg_{0};
+    int   cycle_count_{0};
+    float seg_start_val_{0.0f};
+    float cur_output_{0.0f};
 };
 
 } // namespace nomos::rt
