@@ -260,6 +260,9 @@ add_library(nomos::rt-exe-headers ALIAS nomos-rt-exe-headers)
 target_include_directories(nomos-rt-exe-headers INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
+target_include_directories(nomos-rt-exe-headers SYSTEM INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor/mi>
+)
 
 # ---------------------------------------------------------------------------
 # Tests
