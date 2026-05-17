@@ -210,6 +210,7 @@ add_library(nomos-rt STATIC
     src/modulator_engine.cpp
     src/slope_modulator.cpp
     src/segment_modulator.cpp
+    src/shift_register_modulator.cpp
 )
 
 add_library(nomos::rt ALIAS nomos-rt)
