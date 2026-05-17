@@ -45,10 +45,8 @@ class stochastic_modulator final : public abstract_modulator {
 public:
     explicit stochastic_modulator();
 
-    float tick(double beat, float tick_rate_hz) override;
-    void  update(std::string_view key, float value) override;
-
-    bool gate_out() const noexcept { return gate_out_; }
+    modulator_output tick(double beat, float tick_rate_hz) override;
+    void             update(std::string_view key, float value) override;
 
 private:
     static constexpr int kMaxLength = 16;

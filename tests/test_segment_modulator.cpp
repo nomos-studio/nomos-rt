@@ -13,12 +13,13 @@ using seg_type = segment_modulator::type;
 namespace {
 
 segment_modulator make_single_ramp() {
-    return segment_modulator({{
+    const std::vector<segment_modulator::segment_def> defs{{
         seg_type::ramp,
         /*primary=*/   0.5f,
         /*secondary=*/ 0.5f,
         /*loop=*/      true,
-    }});
+    }};
+    return segment_modulator(defs);
 }
 
 } // namespace
@@ -28,7 +29,7 @@ TEST_CASE("segment_modulator: output in [0, 1]", "[segment_modulator]") {
 
     constexpr int n_ticks = 200;
     for (int i = 0; i < n_ticks; ++i) {
-        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f);
+        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f).cv;
         REQUIRE(v >= 0.0f);
         REQUIRE(v <= 1.0f);
         REQUIRE(!std::isnan(v));
@@ -42,7 +43,7 @@ TEST_CASE("segment_modulator: depth scales output", "[segment_modulator]") {
 
     constexpr int n_ticks = 200;
     for (int i = 0; i < n_ticks; ++i) {
-        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f);
+        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f).cv;
         REQUIRE(v >= 0.0f);
         REQUIRE(v <= 0.5f);
     }
@@ -52,40 +53,40 @@ TEST_CASE("segment_modulator: depth zero produces near-zero output", "[segment_m
     auto mod = make_single_ramp();
     mod.update("depth", 0.0f);
 
-    const float v = mod.tick(0.0, 100.0f);
+    const float v = mod.tick(0.0, 100.0f).cv;
     REQUIRE(v == Catch::Approx(0.0f).margin(1e-6f));
 }
 
 TEST_CASE("segment_modulator: update segment_0_primary does not crash", "[segment_modulator]") {
     auto mod = make_single_ramp();
     REQUIRE_NOTHROW(mod.update("segment_0_primary", 0.8f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
 }
 
 TEST_CASE("segment_modulator: update segment_0_secondary does not crash", "[segment_modulator]") {
     auto mod = make_single_ramp();
     REQUIRE_NOTHROW(mod.update("segment_0_secondary", 0.2f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
 }
 
 TEST_CASE("segment_modulator: segment param clamped to [0, 1]", "[segment_modulator]") {
     auto mod = make_single_ramp();
     REQUIRE_NOTHROW(mod.update("segment_0_primary", -0.5f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
     REQUIRE_NOTHROW(mod.update("segment_0_primary", 1.5f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
 }
 
 TEST_CASE("segment_modulator: out-of-range segment index is a no-op", "[segment_modulator]") {
     auto mod = make_single_ramp();
     REQUIRE_NOTHROW(mod.update("segment_5_primary", 0.5f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
 }
 
 TEST_CASE("segment_modulator: unknown key is a no-op", "[segment_modulator]") {
     auto mod = make_single_ramp();
     REQUIRE_NOTHROW(mod.update("nonexistent", 0.5f));
-    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f)));
+    REQUIRE(!std::isnan(mod.tick(0.0, 100.0f).cv));
 }
 
 TEST_CASE("segment_modulator: multi-segment construction does not crash", "[segment_modulator]") {
@@ -98,7 +99,7 @@ TEST_CASE("segment_modulator: multi-segment construction does not crash", "[segm
 
     constexpr int n_ticks = 100;
     for (int i = 0; i < n_ticks; ++i) {
-        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f);
+        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f).cv;
         REQUIRE(v >= 0.0f);
         REQUIRE(v <= 1.0f);
         REQUIRE(!std::isnan(v));
@@ -112,7 +113,7 @@ TEST_CASE("segment_modulator: step segment output in [0, 1]", "[segment_modulato
     segment_modulator mod(defs);
 
     for (int i = 0; i < 50; ++i) {
-        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f);
+        const float v = mod.tick(static_cast<double>(i) * 0.01, 100.0f).cv;
         REQUIRE(v >= 0.0f);
         REQUIRE(v <= 1.0f);
     }
@@ -125,10 +126,9 @@ TEST_CASE("segment_modulator: alt segment alternates between primary and seconda
     segment_modulator mod(defs);
     mod.update("rate", 1.0f);
 
-    // Run more than two full cycles; collect all distinct values.
     bool saw_08 = false, saw_02 = false;
     for (int i = 0; i < 300; ++i) {
-        const float v = mod.tick(0.0, 100.0f);
+        const float v = mod.tick(0.0, 100.0f).cv;
         if (v >= 0.79f) saw_08 = true;
         if (v <= 0.21f) saw_02 = true;
     }
@@ -145,7 +145,7 @@ TEST_CASE("segment_modulator: ramp segment varies within cycle", "[segment_modul
 
     float min_v = 1.0f, max_v = 0.0f;
     for (int i = 0; i < 200; ++i) {
-        const float v = mod.tick(0.0, 100.0f);
+        const float v = mod.tick(0.0, 100.0f).cv;
         if (v < min_v) min_v = v;
         if (v > max_v) max_v = v;
     }

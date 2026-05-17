@@ -44,11 +44,8 @@ class slew_modulator final : public abstract_modulator {
 public:
     explicit slew_modulator() = default;
 
-    float tick(double beat, float tick_rate_hz) override;
-    void  update(std::string_view key, float value) override;
-
-    bool eor() const noexcept { return eor_; }  // end of rise: output hit +1
-    bool eoc() const noexcept { return eoc_; }  // end of cycle: output hit -1
+    modulator_output tick(double beat, float tick_rate_hz) override;
+    void             update(std::string_view key, float value) override;
 
 private:
     enum class stage { idle, rising, falling };

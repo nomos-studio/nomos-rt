@@ -42,8 +42,8 @@ class slope_modulator final : public abstract_modulator {
 public:
     explicit slope_modulator() = default;
 
-    float tick(double beat, float tick_rate_hz) override;
-    void  update(std::string_view key, float value) override;
+    modulator_output tick(double beat, float tick_rate_hz) override;
+    void             update(std::string_view key, float value) override;
 
 private:
     float rate_{1.0f};

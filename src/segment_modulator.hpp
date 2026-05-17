@@ -3,8 +3,9 @@
 
 #include "abstract_modulator.hpp"
 
+#include <array>
+#include <span>
 #include <string_view>
-#include <vector>
 
 namespace nomos::rt {
 
@@ -36,15 +37,16 @@ public:
         bool  loop{false};  // reserved — generator always loops
     };
 
-    explicit segment_modulator(const std::vector<segment_def>& segments);
+    explicit segment_modulator(std::span<const segment_def> segments);
 
-    float tick(double beat, float tick_rate_hz) override;
-    void  update(std::string_view key, float value) override;
+    modulator_output tick(double beat, float tick_rate_hz) override;
+    void             update(std::string_view key, float value) override;
 
 private:
     static constexpr int kMaxSegments = 36;
 
-    std::vector<segment_def> defs_;
+    std::array<segment_def, kMaxSegments> defs_{};
+    int   n_defs_{1};
     float depth_{1.0f};
     float rate_{1.0f};
 

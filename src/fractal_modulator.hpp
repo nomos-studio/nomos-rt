@@ -42,10 +42,8 @@ class fractal_modulator final : public abstract_modulator {
 public:
     explicit fractal_modulator();
 
-    float tick(double beat, float tick_rate_hz) override;
-    void  update(std::string_view key, float value) override;
-
-    bool gate_out() const noexcept { return gate_out_; }
+    modulator_output tick(double beat, float tick_rate_hz) override;
+    void             update(std::string_view key, float value) override;
 
     static constexpr int kMaxOctaves = 8;
 

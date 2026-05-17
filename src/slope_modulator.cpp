@@ -11,9 +11,9 @@ namespace {
 constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
 } // namespace
 
-float slope_modulator::tick(double /*beat*/, float tick_rate_hz) {
+modulator_output slope_modulator::tick(double /*beat*/, float tick_rate_hz) {
     if (tick_rate_hz <= 0.0f)
-        return last_output_;
+        return {.cv = last_output_};
 
     phase_ += rate_ / tick_rate_hz;
     if (phase_ >= 1.0f) phase_ -= 1.0f;
@@ -34,13 +34,13 @@ float slope_modulator::tick(double /*beat*/, float tick_rate_hz) {
 
     float output;
     if (shape_ <= 0.0f)
-        output = tri + (shape_ + 1.0f) * (sin_v - tri);  // lerp tri→sine
+        output = tri + (shape_ + 1.0f) * (sin_v - tri);
     else
-        output = std::pow(std::max(sin_v, 1e-6f), 1.0f + shape_ * 2.0f); // sine→peaked
+        output = std::pow(std::max(sin_v, 1e-6f), 1.0f + shape_ * 2.0f);
 
     // Smoothness: < 0 → one-pole LP; > 0 → wavefold.
     if (smoothness_ < 0.0f) {
-        const float c = 1.0f + smoothness_;  // 0 at -1, 1 at 0
+        const float c = 1.0f + smoothness_;
         smooth_state_ += c * c * (output - smooth_state_);
         output = smooth_state_;
     } else if (smoothness_ > 0.0f) {
@@ -51,7 +51,8 @@ float slope_modulator::tick(double /*beat*/, float tick_rate_hz) {
     }
 
     output = bipolar_ ? output * 2.0f - 1.0f : output;
-    return last_output_ = output * depth_;
+    last_output_ = output * depth_;
+    return {.cv = last_output_};
 }
 
 void slope_modulator::update(std::string_view key, float value) {

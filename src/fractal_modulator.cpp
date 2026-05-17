@@ -27,11 +27,11 @@ fractal_modulator::fractal_modulator() {
     }
 }
 
-float fractal_modulator::tick(double /*beat*/, float tick_rate_hz) {
+modulator_output fractal_modulator::tick(double /*beat*/, float tick_rate_hz) {
     gate_out_ = false;
 
     if (tick_rate_hz <= 0.0f)
-        return prev_output_ * depth_;
+        return {.cv = prev_output_ * depth_};
 
     float sum  = 0.0f;
     float norm = 0.0f;
@@ -59,7 +59,7 @@ float fractal_modulator::tick(double /*beat*/, float tick_rate_hz) {
         gate_out_ = true;
 
     prev_output_ = output;
-    return std::clamp(output, -1.0f, 1.0f) * depth_;
+    return {.cv = std::clamp(output, -1.0f, 1.0f) * depth_, .gate = gate_out_};
 }
 
 void fractal_modulator::update(std::string_view key, float value) {

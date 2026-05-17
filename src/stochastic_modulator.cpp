@@ -14,25 +14,22 @@ stochastic_modulator::stochastic_modulator() {
     }
 }
 
-float stochastic_modulator::tick(double /*beat*/, float tick_rate_hz) {
+modulator_output stochastic_modulator::tick(double /*beat*/, float tick_rate_hz) {
     gate_out_ = false;
 
     if (tick_rate_hz <= 0.0f)
-        return cv_out_ * depth_;
+        return {.cv = cv_out_ * depth_};
 
     clock_phase_ += rate_ / tick_rate_hz;
 
     if (clock_phase_ < next_threshold_)
-        return cv_out_ * depth_;
+        return {.cv = cv_out_ * depth_};
 
-    // Clock edge: fire.
     clock_phase_ -= next_threshold_;
 
-    // Set threshold for next period: blend periodic (1.0) with exponential (Poisson).
     const float u = std::max(next_rand(), 1e-6f);
     next_threshold_ = std::lerp(1.0f, -std::log(u), jitter_);
 
-    // Déjà vu: decide whether to replay from the loop or generate new values.
     const float prob_replay = std::min(deja_vu_ * 2.0f, 1.0f);
     const float prob_freeze = std::max((deja_vu_ - 0.5f) * 2.0f, 0.0f);
 
@@ -40,7 +37,6 @@ float stochastic_modulator::tick(double /*beat*/, float tick_rate_hz) {
     const bool freeze = (deja_vu_ > 0.5f) && (next_rand() < prob_freeze);
 
     if (!replay) {
-        // Generate new gate and CV, write to loop.
         const bool  new_gate = next_rand() < bias_;
         const float new_cv   = generate_cv();
         gate_buf_[write_pos_] = new_gate;
@@ -54,7 +50,7 @@ float stochastic_modulator::tick(double /*beat*/, float tick_rate_hz) {
     if (!freeze)
         read_pos_ = (read_pos_ + 1) % length_;
 
-    return cv_out_ * depth_;
+    return {.cv = cv_out_ * depth_, .gate = gate_out_};
 }
 
 void stochastic_modulator::update(std::string_view key, float value) {

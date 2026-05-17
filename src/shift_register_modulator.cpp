@@ -61,18 +61,17 @@ shift_register_modulator::shift_register_modulator(mode m, int length, int dac_b
         reg_ = 1u;  // LFSR must be non-zero to produce any sequence
 }
 
-float shift_register_modulator::tick(double /*beat*/, float tick_rate_hz) {
+modulator_output shift_register_modulator::tick(double /*beat*/, float tick_rate_hz) {
     if (tick_rate_hz <= 0.0f)
-        return dac_output() * depth_;
+        return {.cv = dac_output() * depth_, .state = reg_};
 
     clock_phase_ += clock_rate_ / tick_rate_hz;
 
     if (clock_phase_ < 1.0f)
-        return dac_output() * depth_;
+        return {.cv = dac_output() * depth_, .state = reg_};
 
     clock_phase_ -= 1.0f;
 
-    // Clock edge: compute new bit and shift.
     bool new_bit;
     switch (mode_) {
         case mode::lfsr:
@@ -97,7 +96,7 @@ float shift_register_modulator::tick(double /*beat*/, float tick_rate_hz) {
     reg_ = ((reg_ << 1u) | (new_bit ? 1u : 0u)) & mask;
     gate_out_ = new_bit;
 
-    return dac_output() * depth_;
+    return {.cv = dac_output() * depth_, .gate = gate_out_, .state = reg_};
 }
 
 void shift_register_modulator::update(std::string_view key, float value) {
