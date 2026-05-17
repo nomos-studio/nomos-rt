@@ -6,6 +6,7 @@ add_executable(nomos-rt-tests
     test_slope_modulator.cpp
     test_segment_modulator.cpp
     test_shift_register_modulator.cpp
+    test_slew_modulator.cpp
     test_spsc_queue.cpp
     test_time_identity.cpp
 )
