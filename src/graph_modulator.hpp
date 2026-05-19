@@ -24,6 +24,7 @@ namespace nomos::rt {
 //   phasor:      state[0] = accumulated phase  [0, 1)
 //   slew:        state[0] = current output value
 //   sample_hold: state[0] = held value, state[1] = previous gate value
+//   beat_phase:  stateless — phase = fmod(beat / period_beats, 1.0)
 // ---------------------------------------------------------------------------
 struct cg_node {
     enum class kind {
@@ -31,6 +32,7 @@ struct cg_node {
         param_ref,   // named param from control_graph::params
         mod_ref,     // output of another named modulator in the engine
         beat_in,     // current beat position as a float
+        beat_phase,  // fmod(beat / period_beats, 1.0) — musically-locked phase
         phasor,
         sin, cos, tri, saw, square,
         scale, clamp, add, mul, neg, abs_val, mix,

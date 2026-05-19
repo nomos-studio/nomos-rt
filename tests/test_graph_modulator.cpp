@@ -55,6 +55,77 @@ TEST_CASE("graph_modulator: update changes param mid-run", "[graph_modulator]") 
 }
 
 // ---------------------------------------------------------------------------
+// beat_phase — musically-locked phase (Q32)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("graph_modulator: beat_phase is 0 at beat 0", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 4.0]")};
+    REQUIRE(m.tick(0.0, 100.0f).cv == Catch::Approx(0.0f));
+}
+
+TEST_CASE("graph_modulator: beat_phase is 0.25 at beat 1 of 4", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 4.0]")};
+    REQUIRE(m.tick(1.0, 100.0f).cv == Catch::Approx(0.25f));
+}
+
+TEST_CASE("graph_modulator: beat_phase is 0.5 at beat 2 of 4", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 4.0]")};
+    REQUIRE(m.tick(2.0, 100.0f).cv == Catch::Approx(0.5f));
+}
+
+TEST_CASE("graph_modulator: beat_phase wraps at period boundary", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 4.0]")};
+    REQUIRE(m.tick(4.0, 100.0f).cv == Catch::Approx(0.0f));
+    REQUIRE(m.tick(5.0, 100.0f).cv == Catch::Approx(0.25f));
+    REQUIRE(m.tick(8.0, 100.0f).cv == Catch::Approx(0.0f));
+}
+
+TEST_CASE("graph_modulator: beat_phase coherent across BPM change", "[graph_modulator]") {
+    // Phase is derived from beat, not wall clock — same beat gives same phase
+    // regardless of how fast or slow ticks arrive.
+    nomos::rt::graph_modulator m{parse("[:beat-phase 4.0]")};
+    // Slow tempo: tick_rate_hz = 10
+    REQUIRE(m.tick(2.0, 10.0f).cv == Catch::Approx(0.5f));
+    // Fast tempo: tick_rate_hz = 400 — same beat, same phase
+    REQUIRE(m.tick(2.0, 400.0f).cv == Catch::Approx(0.5f));
+}
+
+TEST_CASE("graph_modulator: beat_phase with period=1 cycles every beat", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 1.0]")};
+    REQUIRE(m.tick(0.0,  100.0f).cv == Catch::Approx(0.0f));
+    REQUIRE(m.tick(0.25, 100.0f).cv == Catch::Approx(0.25f));
+    REQUIRE(m.tick(0.5,  100.0f).cv == Catch::Approx(0.5f));
+    REQUIRE(m.tick(0.75, 100.0f).cv == Catch::Approx(0.75f));
+    REQUIRE(m.tick(1.0,  100.0f).cv == Catch::Approx(0.0f));
+}
+
+TEST_CASE("graph_modulator: beat_phase with param-controlled period", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase [:param :period]]",
+                                       {{"period", 2.0f}})};
+    REQUIRE(m.tick(1.0, 100.0f).cv == Catch::Approx(0.5f));
+    m.update("period", 4.0f);
+    REQUIRE(m.tick(1.0, 100.0f).cv == Catch::Approx(0.25f));
+}
+
+TEST_CASE("graph_modulator: beat_phase zero period returns 0", "[graph_modulator]") {
+    nomos::rt::graph_modulator m{parse("[:beat-phase 0.0]")};
+    REQUIRE(m.tick(1.0, 100.0f).cv == Catch::Approx(0.0f));
+}
+
+TEST_CASE("graph_modulator: sin of beat_phase sweeps full range", "[graph_modulator]") {
+    // [:sin [:beat-phase 4.0]] driven by beat 0..4 should cover the sine range
+    nomos::rt::graph_modulator m{parse("[:sin [:beat-phase 4.0]]")};
+    float lo = 1.0f, hi = -1.0f;
+    for (int i = 0; i <= 100; ++i) {
+        float v = m.tick(4.0 * i / 100.0, 100.0f).cv;
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+    }
+    REQUIRE(lo < -0.9f);
+    REQUIRE(hi >  0.9f);
+}
+
+// ---------------------------------------------------------------------------
 // Oscillators
 // ---------------------------------------------------------------------------
 

@@ -75,6 +75,12 @@ int parse_node(const edn::value& v, control_graph& g) {
     } else if (op == "beat") {
         node.type = cg_node::kind::beat_in;
 
+    } else if (op == "beat-phase") {
+        // [:beat-phase period-beats] — phase = fmod(beat / period, 1.0)
+        // period-beats may be a literal or any sub-expression.
+        node.type      = cg_node::kind::beat_phase;
+        node.inputs[0] = child_or_const(0, 1.0f);
+
     } else if (op == "phasor") {
         node.type      = cg_node::kind::phasor;
         node.inputs[0] = child_or_const(0, 1.0f);  // rate
@@ -207,6 +213,12 @@ float eval_node(cg_node&                                       n,
 
     case cg_node::kind::beat_in:
         return static_cast<float>(beat);
+
+    case cg_node::kind::beat_phase: {
+        float period = in(0);
+        if (period <= 0.0f) return 0.0f;
+        return std::fmod(static_cast<float>(beat) / period, 1.0f);
+    }
 
     case cg_node::kind::phasor: {
         float  rate = in(0);
