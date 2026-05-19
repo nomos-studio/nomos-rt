@@ -7,6 +7,10 @@
 #include "graph_modulator.hpp"
 #include "slope_modulator.hpp"
 #include "segment_modulator.hpp"
+#include "slew_modulator.hpp"
+#include "shift_register_modulator.hpp"
+#include "fractal_modulator.hpp"
+#include "stochastic_modulator.hpp"
 
 #include <edn/builtins.hpp>
 #include <edn/parser.hpp>
@@ -492,6 +496,56 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
             if (!defs.empty())
                 cfg_.mod_engine->start(std::move(id),
                     std::make_unique<segment_modulator>(std::span{defs}));
+
+        } else if (type_name == "slew") {
+            auto mod = std::make_unique<slew_modulator>();
+            mod->update("rise",  get_f("rise",  0.1f));
+            mod->update("fall",  get_f("fall",  0.1f));
+            mod->update("cycle", get_f("cycle", 0.0f));
+            mod->update("depth", get_f("depth", 1.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "shift-register") {
+            // :mode keyword selects feedback algorithm; length and dac_bits are
+            // constructor-fixed so they can't be updated live.
+            static const std::unordered_map<std::string, shift_register_modulator::mode> mode_map{
+                {"lfsr",    shift_register_modulator::mode::lfsr},
+                {"rungler", shift_register_modulator::mode::rungler},
+                {"turing",  shift_register_modulator::mode::turing},
+                {"open",    shift_register_modulator::mode::open},
+            };
+            shift_register_modulator::mode sr_mode = shift_register_modulator::mode::turing;
+            if (const auto* mv = m.find_kw("mode"); mv && mv->is<edn::keyword>()) {
+                auto it = mode_map.find(std::string{mv->get<edn::keyword>().name});
+                if (it != mode_map.end()) sr_mode = it->second;
+            }
+            const int length   = static_cast<int>(get_f("length",   16.0f));
+            const int dac_bits = static_cast<int>(get_f("dac_bits",  3.0f));
+            auto mod = std::make_unique<shift_register_modulator>(sr_mode, length, dac_bits);
+            mod->update("clock_rate", get_f("clock_rate", 2.0f));
+            mod->update("data",       get_f("data",       0.5f));
+            mod->update("param",      get_f("param",      0.5f));
+            mod->update("depth",      get_f("depth",      1.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "fractal") {
+            auto mod = std::make_unique<fractal_modulator>();
+            mod->update("base_rate",   get_f("base_rate",   0.1f));
+            mod->update("octaves",     get_f("octaves",     4.0f));
+            mod->update("lacunarity",  get_f("lacunarity",  2.0f));
+            mod->update("persistence", get_f("persistence", 0.5f));
+            mod->update("depth",       get_f("depth",       1.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "stochastic") {
+            auto mod = std::make_unique<stochastic_modulator>();
+            mod->update("rate",    get_f("rate",    2.0f));
+            mod->update("bias",    get_f("bias",    0.5f));
+            mod->update("spread",  get_f("spread",  0.5f));
+            mod->update("deja_vu", get_f("deja_vu", 0.0f));
+            mod->update("length",  get_f("length",  8.0f));
+            mod->update("depth",   get_f("depth",   1.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
 
         } else if (type_name == "graph") {
             const auto* graph_v = m.find_kw("graph");
