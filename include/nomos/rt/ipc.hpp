@@ -34,7 +34,8 @@ constexpr uint8_t msg_modulator_stop =
 constexpr uint8_t msg_modulator_update =
     0x48; // EDN {:id :kw :key "rate" :value 0.5} — update a modulator parameter
 constexpr uint8_t msg_tick =
-    0x50; // EDN {:beat D :tick-n N} — pushed to connected clients on each 24 PPQN tick
+    0x50; // EDN {:beat D :tick-n N :mods {:id {:cv F :aux F :gate B :gate2 B} ...}}
+          // pushed to connected clients on each 24 PPQN tick; :mods omitted when empty
 
 // Header layout.  Laid out for direct memcpy from the wire; fields in network byte
 // order (big-endian) — callers must byte-swap payload_len on little-endian hosts.
