@@ -8,17 +8,27 @@ namespace nomos::rt {
 
 // All outputs from a single modulator tick, bundled in one value.
 //
-//   cv    — primary CV, depth-scaled, normalised to [-1,1] or [0,1]
-//   aux   — secondary CV (unused by most modulators; reserved)
-//   gate  — primary gate: gate_out (stochastic/fractal/shift_register), eor (slew)
-//   gate2 — secondary gate: eoc (slew only)
-//   state — full shift-register word (shift_register_modulator only)
+//   cv      — primary CV, depth-scaled, normalised to [-1,1] or [0,1]
+//   aux     — secondary CV (slew output, passthrough, etc.)
+//   gate    — primary gate: gate_out (stochastic/fractal/shift_register), eor (slew)
+//   gate2   — secondary gate: eoc (slew only)
+//   state   — packed integer: shift-register word, channel bitmap, address, etc.
+//   outputs — extended named outputs for multi-channel modulators:
+//               statues:  outputs[0..7] = 8 held slot values
+//               cipher:   outputs[0..3] = cv1..cv4 weighted projections
+//               genie:    outputs[0..2] = n1/n2/n3 neuron values  (future)
+//               sloth:    outputs[0..2] = x/y/z attractor axes    (future)
+//             Unused slots are zero-initialised; existing single-output
+//             modulators leave outputs[] untouched.
 struct modulator_output {
     float    cv{0.0f};
     float    aux{0.0f};
     bool     gate{false};
     bool     gate2{false};
     uint32_t state{0};
+
+    static constexpr int kMaxOutputs = 8;
+    float outputs[kMaxOutputs]{};
 };
 
 // Base interface for all RT modulators.

@@ -12,6 +12,10 @@
 #include "fractal_modulator.hpp"
 #include "stochastic_modulator.hpp"
 #include "cv_channel_decoder.hpp"
+#include "divine_cmos_modulator.hpp"
+#include "statues_modulator.hpp"
+#include "cipher_modulator.hpp"
+#include "bools_ring_modulator.hpp"
 
 #include <edn/builtins.hpp>
 #include <edn/parser.hpp>
@@ -607,6 +611,100 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
                 else if (sv->is<int64_t>()) mod->update("span", static_cast<float>(sv->get<int64_t>()));
             }
 
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "divine-cmos") {
+            // {:id :kw :type :divine-cmos
+            //  :clock1 [:src-id]  :clock2 [:src-id]
+            //  :gains [g0 g1 g2 g3]  :slew 0.0}
+            auto get_src = [&](const char* kw) -> std::string {
+                const auto* v = m.find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<divine_cmos_modulator>(
+                cfg_.mod_engine, get_src("clock1"), get_src("clock2"));
+            if (const auto* gv = m.find_kw("gains"); gv && gv->is<edn::vector>()) {
+                const auto& items = gv->get<edn::vector>().items;
+                for (int i = 0; i < 4 && i < static_cast<int>(items.size()); ++i) {
+                    float g = 1.0f;
+                    if (items[i].is<double>())  g = static_cast<float>(items[i].get<double>());
+                    else if (items[i].is<int64_t>()) g = static_cast<float>(items[i].get<int64_t>());
+                    mod->update(std::string{"gain"} + char('0' + i), g);
+                }
+            }
+            mod->update("slew", get_f("slew", 0.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "statues") {
+            // {:id :kw :type :statues
+            //  :in [:src-id]  :addr [:src-id]}
+            auto get_src = [&](const char* kw) -> std::string {
+                const auto* v = m.find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<statues_modulator>(
+                cfg_.mod_engine, get_src("in"), get_src("addr"));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "cipher") {
+            // {:id :kw :type :cipher
+            //  :clock [:src] :data1 [:src] :data2 [:src] :strobe [:src]}
+            auto get_src = [&](const char* kw) -> std::string {
+                const auto* v = m.find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<cipher_modulator>(
+                cfg_.mod_engine,
+                get_src("clock"), get_src("data1"), get_src("data2"), get_src("strobe"));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "bools-ring") {
+            // {:id :kw :type :bools-ring
+            //  :mode :xor  :slew 0.0
+            //  :ins {:in0 [:src] :in1 [:src] :in2 [:src] :in3 [:src]}}
+            static const std::unordered_map<std::string, bools_ring_modulator::mode> mode_map{
+                {"xor",  bools_ring_modulator::mode::xor_mode},
+                {"or",   bools_ring_modulator::mode::or_mode},
+                {"and",  bools_ring_modulator::mode::and_mode},
+                {"nor",  bools_ring_modulator::mode::nor_mode},
+                {"nand", bools_ring_modulator::mode::nand_mode},
+                {"xnor", bools_ring_modulator::mode::xnor_mode},
+            };
+            auto br_mode = bools_ring_modulator::mode::xor_mode;
+            if (const auto* mv = m.find_kw("mode"); mv && mv->is<edn::keyword>()) {
+                auto it = mode_map.find(std::string{mv->get<edn::keyword>().name});
+                if (it != mode_map.end()) br_mode = it->second;
+            }
+
+            // Parse :ins sub-map for per-input source IDs.
+            auto get_in_src = [&](const char* kw) -> std::string {
+                const auto* ins_v = m.find_kw("ins");
+                if (!ins_v || !ins_v->is<edn::map>()) return {};
+                const auto* v = ins_v->get<edn::map>().find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+
+            auto mod = std::make_unique<bools_ring_modulator>(
+                br_mode, cfg_.mod_engine,
+                get_in_src("in0"), get_in_src("in1"),
+                get_in_src("in2"), get_in_src("in3"), /*sample_src=*/"");
+            mod->update("slew", get_f("slew", 0.0f));
             cfg_.mod_engine->start(std::move(id), std::move(mod));
 
         } else if (cfg_.ext_registry) {

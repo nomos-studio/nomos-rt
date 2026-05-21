@@ -163,6 +163,10 @@ add_library(nomos-rt STATIC
     src/fractal_modulator.cpp
     src/stochastic_modulator.cpp
     src/cv_channel_decoder.cpp
+    src/divine_cmos_modulator.cpp
+    src/statues_modulator.cpp
+    src/cipher_modulator.cpp
+    src/bools_ring_modulator.cpp
 )
 
 add_library(nomos::rt ALIAS nomos-rt)

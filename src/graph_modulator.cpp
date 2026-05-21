@@ -203,11 +203,16 @@ float eval_node(cg_node&                                       n,
         if (!engine) return 0.0f;
         const auto* out = engine->last_output(n.param_key);
         if (!out) return 0.0f;
-        switch (static_cast<int>(n.args[0])) {
+        const int field = static_cast<int>(n.args[0]);
+        switch (field) {
             case 1:  return out->aux;
             case 2:  return out->gate  ? 1.0f : 0.0f;
             case 3:  return out->gate2 ? 1.0f : 0.0f;
-            default: return out->cv;
+            default:
+                // fields 4..11 → outputs[0..7]
+                if (field >= 4 && field < 4 + modulator_output::kMaxOutputs)
+                    return out->outputs[field - 4];
+                return out->cv;
         }
     }
 
