@@ -16,6 +16,10 @@
 #include "statues_modulator.hpp"
 #include "cipher_modulator.hpp"
 #include "bools_ring_modulator.hpp"
+#include "sloth_chaos_modulator.hpp"
+#include "squid_axon_modulator.hpp"
+#include "genie_modulator.hpp"
+#include "lets_splosh_modulator.hpp"
 
 #include <edn/builtins.hpp>
 #include <edn/parser.hpp>
@@ -705,6 +709,98 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
                 get_in_src("in0"), get_in_src("in1"),
                 get_in_src("in2"), get_in_src("in3"), /*sample_src=*/"");
             mod->update("slew", get_f("slew", 0.0f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "sloth-chaos") {
+            // {:id :kw :type :sloth-chaos
+            //  :variant :torpor|:apathy|:inertia|:triple
+            //  :knob 0.5  :cv [:src]}
+            static const std::unordered_map<std::string, sloth_chaos_modulator::variant> variant_map{
+                {"torpor",  sloth_chaos_modulator::variant::torpor},
+                {"apathy",  sloth_chaos_modulator::variant::apathy},
+                {"inertia", sloth_chaos_modulator::variant::inertia},
+                {"triple",  sloth_chaos_modulator::variant::triple},
+            };
+            auto v = sloth_chaos_modulator::variant::torpor;
+            if (const auto* vv = m.find_kw("variant"); vv && vv->is<edn::keyword>()) {
+                auto it = variant_map.find(std::string{vv->get<edn::keyword>().name});
+                if (it != variant_map.end()) v = it->second;
+            }
+            auto get_sloth_src = [&](const char* kw) -> std::string {
+                const auto* v = m.find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<sloth_chaos_modulator>(
+                v, cfg_.mod_engine, get_sloth_src("cv"));
+            mod->update("knob", get_f("knob", 0.5f));
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "squid-axon") {
+            // {:id :kw :type :squid-axon
+            //  :clock [:src]  :in1 [:src]  :in2 [:src]  :in3 [:src]
+            //  :nl-fb 0.0  :lin-fb 0.0}
+            auto get_squid_src = [&](const char* kw) -> std::string {
+                const auto* v = m.find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<squid_axon_modulator>(
+                cfg_.mod_engine,
+                get_squid_src("clock"), get_squid_src("in1"),
+                get_squid_src("in2"),   get_squid_src("in3"));
+            mod->update("nl_fb",   get_f("nl-fb",  0.0f));
+            mod->update("lin_fb",  get_f("lin-fb", 0.0f));
+            if (m.find_kw("in3")) mod->update("in3_patched", 1.0f);
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "genie") {
+            // {:id :kw :type :genie
+            //  :n 3  :gains [g0 g1 g2]  :sense [s0 s1 s2]  :response [r0 r1 r2]}
+            const int n_neurons = static_cast<int>(get_f("n", 3.0f));
+
+            auto mod = std::make_unique<genie_modulator>(n_neurons, cfg_.mod_engine);
+
+            // Parse per-neuron vector params.
+            auto apply_vec_param = [&](const char* kw, const char* prefix) {
+                const auto* vv = m.find_kw(kw);
+                if (!vv || !vv->is<edn::vector>()) return;
+                const auto& items = vv->get<edn::vector>().items;
+                for (int i = 0; i < (int)items.size() && i < genie_modulator::kMaxN; ++i) {
+                    if (items[i].is<double>()) {
+                        mod->update(std::string(prefix) + char('0' + i),
+                                    static_cast<float>(items[i].get<double>()));
+                    }
+                }
+            };
+            apply_vec_param("gains",    "gain");
+            apply_vec_param("sense",    "sense");
+            apply_vec_param("response", "response");
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
+
+        } else if (type_name == "lets-splosh") {
+            // {:id :kw :type :lets-splosh
+            //  :ins {:c [:src] :t [:src] :n [:src] :b [:src]}}
+            auto get_ins_src = [&](const char* kw) -> std::string {
+                const auto* ins_v = m.find_kw("ins");
+                if (!ins_v || !ins_v->is<edn::map>()) return {};
+                const auto* v = ins_v->get<edn::map>().find_kw(kw);
+                if (!v || !v->is<edn::vector>()) return {};
+                const auto& vec = v->get<edn::vector>().items;
+                if (!vec.empty() && vec[0].is<edn::keyword>())
+                    return std::string{vec[0].get<edn::keyword>().name};
+                return {};
+            };
+            auto mod = std::make_unique<lets_splosh_modulator>(
+                cfg_.mod_engine,
+                get_ins_src("c"), get_ins_src("t"),
+                get_ins_src("n"), get_ins_src("b"));
             cfg_.mod_engine->start(std::move(id), std::move(mod));
 
         } else if (cfg_.ext_registry) {

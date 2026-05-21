@@ -15,6 +15,10 @@ add_executable(nomos-rt-tests
     test_statues_modulator.cpp
     test_cipher_modulator.cpp
     test_bools_ring_modulator.cpp
+    test_sloth_chaos_modulator.cpp
+    test_squid_axon_modulator.cpp
+    test_genie_modulator.cpp
+    test_lets_splosh_modulator.cpp
     test_spsc_queue.cpp
     test_time_identity.cpp
 )

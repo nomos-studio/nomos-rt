@@ -167,7 +167,12 @@ add_library(nomos-rt STATIC
     src/statues_modulator.cpp
     src/cipher_modulator.cpp
     src/bools_ring_modulator.cpp
+    src/sloth_chaos_modulator.cpp
+    src/squid_axon_modulator.cpp
+    src/genie_modulator.cpp
+    src/lets_splosh_modulator.cpp
 )
+
 
 add_library(nomos::rt ALIAS nomos-rt)
 

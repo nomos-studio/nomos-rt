@@ -27,7 +27,7 @@ struct modulator_output {
     bool     gate2{false};
     uint32_t state{0};
 
-    static constexpr int kMaxOutputs = 8;
+    static constexpr int kMaxOutputs = 16;
     float outputs[kMaxOutputs]{};
 };
 
