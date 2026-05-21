@@ -11,6 +11,7 @@
 #include "shift_register_modulator.hpp"
 #include "fractal_modulator.hpp"
 #include "stochastic_modulator.hpp"
+#include "cv_channel_decoder.hpp"
 
 #include <edn/builtins.hpp>
 #include <edn/parser.hpp>
@@ -567,6 +568,46 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
                 std::make_unique<graph_modulator>(
                     parse_control_graph(*graph_v, std::move(params)),
                     cfg_.mod_engine));
+
+        } else if (type_name == "cv-channel-decoder") {
+            // {:id :kw :type :cv-channel-decoder
+            //  :span [:source-id]          ; or [:source-id :aux] / [:source-id :gate]
+            //  :channels 1                 ; 1..8
+            //  :space 1.0}
+            int channels = 1;
+            if (const auto* v = m.find_kw("channels")) {
+                if (v->is<int64_t>())  channels = static_cast<int>(v->get<int64_t>());
+                else if (v->is<double>()) channels = static_cast<int>(v->get<double>());
+            }
+
+            std::string              source_id;
+            cv_channel_decoder::source_field field = cv_channel_decoder::source_field::cv;
+
+            if (const auto* sv = m.find_kw("span")) {
+                if (sv->is<edn::vector>()) {
+                    const auto& vec = sv->get<edn::vector>().items;
+                    if (!vec.empty() && vec[0].is<edn::keyword>())
+                        source_id = std::string{vec[0].get<edn::keyword>().name};
+                    if (vec.size() >= 2 && vec[1].is<edn::keyword>()) {
+                        const auto fn = vec[1].get<edn::keyword>().name;
+                        if (fn == "aux")  field = cv_channel_decoder::source_field::aux;
+                        if (fn == "gate") field = cv_channel_decoder::source_field::gate;
+                    }
+                }
+            }
+
+            auto mod = std::make_unique<cv_channel_decoder>(
+                channels, cfg_.mod_engine, std::move(source_id), field);
+            mod->update("space",   get_f("space",   1.0f));
+            mod->update("clocked", get_f("clocked", 0.0f));
+
+            // Static span value (used when no source_id / as initial value).
+            if (const auto* sv = m.find_kw("span"); sv && !sv->is<edn::vector>()) {
+                if (sv->is<double>())  mod->update("span", static_cast<float>(sv->get<double>()));
+                else if (sv->is<int64_t>()) mod->update("span", static_cast<float>(sv->get<int64_t>()));
+            }
+
+            cfg_.mod_engine->start(std::move(id), std::move(mod));
 
         } else if (cfg_.ext_registry) {
             // Extension type: factory constructs, then float params are applied generically.

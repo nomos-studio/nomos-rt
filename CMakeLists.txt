@@ -162,6 +162,7 @@ add_library(nomos-rt STATIC
     src/slew_modulator.cpp
     src/fractal_modulator.cpp
     src/stochastic_modulator.cpp
+    src/cv_channel_decoder.cpp
 )
 
 add_library(nomos::rt ALIAS nomos-rt)

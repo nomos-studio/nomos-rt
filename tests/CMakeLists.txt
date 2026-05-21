@@ -10,6 +10,7 @@ add_executable(nomos-rt-tests
     test_slew_modulator.cpp
     test_fractal_modulator.cpp
     test_stochastic_modulator.cpp
+    test_cv_channel_decoder.cpp
     test_spsc_queue.cpp
     test_time_identity.cpp
 )
