@@ -21,6 +21,7 @@ add_executable(nomos-rt-tests
     test_lets_splosh_modulator.cpp
     test_spsc_queue.cpp
     test_time_identity.cpp
+    test_faust_modulator.cpp
 )
 
 target_link_libraries(nomos-rt-tests

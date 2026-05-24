@@ -171,6 +171,7 @@ add_library(nomos-rt STATIC
     src/squid_axon_modulator.cpp
     src/genie_modulator.cpp
     src/lets_splosh_modulator.cpp
+    src/faust_modulator.cpp
 )
 
 
