@@ -18,7 +18,11 @@ namespace {
         std::size_t rem = n;
         while (rem > 0) {
             const ssize_t r = ::read(fd, p, rem);
-            if (r <= 0)
+            if (r == 0) {
+                errno = 0; // clean EOF — read() does not set errno on r==0
+                return false;
+            }
+            if (r < 0)
                 return false;
             p += r;
             rem -= static_cast<std::size_t>(r);
