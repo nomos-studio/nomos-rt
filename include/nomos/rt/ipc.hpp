@@ -19,6 +19,10 @@ constexpr uint8_t msg_session_close   = 0x32;
 constexpr uint8_t msg_register_source = 0x33; // EDN keyword id + name + description
 constexpr uint8_t msg_graph_load      = 0x34; // EDN plugin graph description
 constexpr uint8_t msg_graph_reset     = 0x35; // tear down current graph
+constexpr uint8_t msg_plugin_list_req =
+    0x36; // EDN {:extra-paths [...]} or empty — request plugin discovery
+constexpr uint8_t msg_plugin_list_resp =
+    0x37; // EDN [{:id "..." :name "..." :vendor "..." :version "..." :path "..."} ...]
 constexpr uint8_t msg_param_set       = 0x40; // EDN path + pending tuple
 constexpr uint8_t msg_note_on         = 0x41; // EDN note-on event  → ipc_in_queue
 constexpr uint8_t msg_note_off        = 0x42; // EDN note-off event → ipc_in_queue
