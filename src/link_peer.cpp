@@ -4,6 +4,7 @@
 namespace nomos::rt {
 
 link_peer::link_peer(double initial_bpm) : link_(initial_bpm) {
+    link_.enableStartStopSync(true);
 }
 
 void link_peer::enable(bool on) {
@@ -36,6 +37,23 @@ void link_peer::set_tempo(double bpm, std::chrono::microseconds when) {
     auto state = link_.captureAppSessionState();
     state.setTempo(bpm, when);
     link_.commitAppSessionState(state);
+}
+
+void link_peer::start_transport(std::chrono::microseconds when) {
+    auto state = link_.captureAppSessionState();
+    state.setIsPlaying(true, when);
+    link_.commitAppSessionState(state);
+}
+
+void link_peer::stop_transport(std::chrono::microseconds when) {
+    auto state = link_.captureAppSessionState();
+    state.setIsPlaying(false, when);
+    link_.commitAppSessionState(state);
+}
+
+bool link_peer::is_playing() const {
+    const auto state = link_.captureAppSessionState();
+    return state.isPlaying();
 }
 
 } // namespace nomos::rt

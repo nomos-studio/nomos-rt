@@ -33,6 +33,14 @@ class link_peer {
     // Request a tempo change effective at `when` (microseconds).
     void set_tempo(double bpm, std::chrono::microseconds when);
 
+    // Start / stop transport, effective at `when`.
+    // Requires start/stop sync to be enabled (on by default).
+    void start_transport(std::chrono::microseconds when);
+    void stop_transport(std::chrono::microseconds when);
+
+    // Current transport state from the Link session.
+    bool is_playing() const;
+
   private:
     ableton::Link link_;
 };

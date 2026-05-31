@@ -23,6 +23,12 @@ constexpr uint8_t msg_plugin_list_req =
     0x36; // EDN {:extra-paths [...]} or empty — request plugin discovery
 constexpr uint8_t msg_plugin_list_resp =
     0x37; // EDN [{:id "..." :name "..." :vendor "..." :version "..." :path "..."} ...]
+constexpr uint8_t msg_link_set_tempo =
+    0x38; // EDN {:bpm 120.0} — propose tempo to the Link session
+constexpr uint8_t msg_link_start_transport =
+    0x39; // no payload — set isPlaying=true in the Link session state
+constexpr uint8_t msg_link_stop_transport =
+    0x3A; // no payload — set isPlaying=false in the Link session state
 constexpr uint8_t msg_param_set       = 0x40; // EDN path + pending tuple
 constexpr uint8_t msg_note_on         = 0x41; // EDN note-on event  → ipc_in_queue
 constexpr uint8_t msg_note_off        = 0x42; // EDN note-off event → ipc_in_queue
