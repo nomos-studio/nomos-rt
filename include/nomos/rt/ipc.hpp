@@ -46,6 +46,10 @@ constexpr uint8_t msg_modulator_update =
 constexpr uint8_t msg_tick =
     0x50; // EDN {:beat D :tick-n N :mods {:id {:cv F :aux F :gate B :gate2 B} ...}}
           // pushed to connected clients on each 24 PPQN tick; :mods omitted when empty
+constexpr uint8_t msg_midi_event =
+    0x51; // EDN {:port N :channel N :data [status b1 b2]} pushed by aion on hw MIDI in
+constexpr uint8_t msg_route_set =
+    0x52; // EDN {:midi-routes [...] :mod-routes [...]} — replace the aion routing matrix
 
 // Header layout.  Laid out for direct memcpy from the wire; fields in network byte
 // order (big-endian) — callers must byte-swap payload_len on little-endian hosts.
