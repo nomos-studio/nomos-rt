@@ -43,8 +43,7 @@ if(DEFINED TXLOG_CPP_DIR)
 else()
     FetchContent_Declare(txlog-cpp
         GIT_REPOSITORY https://github.com/nomos-studio/txlog.git
-        GIT_TAG        main
-        GIT_SHALLOW    TRUE
+        GIT_TAG        b0a661b59ee7456a6f9be2c676c5ba2a1ecbbab2
         SOURCE_SUBDIR  cpp)
 endif()
 set(TXLOG_CPP_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
