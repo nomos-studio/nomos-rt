@@ -43,6 +43,17 @@ constexpr uint8_t msg_modulator_stop =
     0x47; // EDN {:id :kw} — stop a named RT modulator
 constexpr uint8_t msg_modulator_update =
     0x48; // EDN {:id :kw :key "rate" :value 0.5} — update a modulator parameter
+constexpr uint8_t msg_cc =
+    0x49; // EDN {:port N :channel N :cc N :value N} — send MIDI CC
+constexpr uint8_t msg_pitch_bend =
+    0x4A; // EDN {:port N :channel N :value N} — 14-bit signed, -8192–8191, centre=0
+constexpr uint8_t msg_chan_pressure =
+    0x4B; // EDN {:port N :channel N :value N} — 0–127
+constexpr uint8_t msg_sysex =
+    0x4C; // EDN {:port N :data [b0 b1 … bN]} — raw SysEx bytes (F0…F7)
+constexpr uint8_t msg_mts =
+    0x4D; // EDN {:port N :tuning {midi→hz} :tuning-prog N :device-id N|:all}
+          //   assembles and sends a 408-byte MTS Bulk Dump SysEx
 constexpr uint8_t msg_tick =
     0x50; // EDN {:beat D :tick-n N :mods {:id {:cv F :aux F :gate B :gate2 B} ...}}
           // pushed to connected clients on each 24 PPQN tick; :mods omitted when empty

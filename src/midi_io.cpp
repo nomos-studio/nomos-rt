@@ -59,6 +59,7 @@ bool midi_io::is_open() const noexcept {
 void midi_io::send(const std::vector<uint8_t>& bytes) {
     if (!is_open())
         return;
+    std::lock_guard<std::mutex> lock(send_mutex_);
     try {
         out_.sendMessage(&bytes);
     } catch (const RtMidiError& e) {

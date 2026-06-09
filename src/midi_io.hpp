@@ -6,6 +6,7 @@
 #include <RtMidi.h>
 
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,7 @@ class midi_io {
     RtMidiOut          out_;
     RtMidiIn           in_;
     input_event_queue* in_queue_{nullptr};
+    std::mutex         send_mutex_;
 };
 
 } // namespace nomos::rt

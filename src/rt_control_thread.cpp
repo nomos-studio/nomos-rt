@@ -27,13 +27,80 @@
 
 #include <clap/events.h>
 
+#include "midi_io.hpp"
+
+#include <array>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace {
+
+// Encode one MIDI key's frequency as a 3-byte MTS note entry [xx yy zz].
+// hz=0 or negative produces the 12-TET identity for that key.
+std::array<uint8_t, 3> mts_encode_note(int key, double hz) noexcept {
+    const double tet_hz = 440.0 * std::pow(2.0, (key - 69) / 12.0);
+    const double use_hz = (hz > 0.0) ? hz : tet_hz;
+
+    const double semitones  = 12.0 * std::log2(use_hz / 440.0) + 69.0;
+    int          xx         = static_cast<int>(std::round(semitones));
+    double       bend_cents = (semitones - xx) * 100.0;
+
+    if (bend_cents < 0.0) {
+        xx = std::max(0, xx - 1);
+        bend_cents += 100.0;
+    }
+    xx = std::max(0, std::min(127, xx));
+
+    const int fine = std::max(0, std::min(16383,
+        static_cast<int>(std::round(bend_cents / 100.0 * 16384.0))));
+    return {static_cast<uint8_t>(xx),
+            static_cast<uint8_t>((fine >> 7) & 0x7F),
+            static_cast<uint8_t>(fine & 0x7F)};
+}
+
+// Assemble a 408-byte MTS Bulk Dump SysEx.
+// tuning: MIDI key → Hz (missing keys use 12-TET identity).
+// prog: MTS tuning programme 0-127.  device_id: 0x7F = all.
+std::vector<uint8_t> mts_bulk_dump(const std::unordered_map<int, double>& tuning,
+                                    uint8_t prog, uint8_t device_id) {
+    std::vector<uint8_t> out;
+    out.reserve(408);
+
+    out.push_back(0xF0);
+    out.push_back(0x7E);
+    out.push_back(device_id);
+    out.push_back(0x08);
+    out.push_back(0x01);
+    out.push_back(prog);
+
+    // 16-byte name field (null-padded)
+    for (int i = 0; i < 16; ++i)
+        out.push_back(0x00);
+
+    // 128 × 3 bytes note entries
+    for (int k = 0; k < 128; ++k) {
+        double hz = 0.0;
+        if (auto it = tuning.find(k); it != tuning.end())
+            hz = it->second;
+        const auto [xx, yy, zz] = mts_encode_note(k, hz);
+        out.push_back(xx);
+        out.push_back(yy);
+        out.push_back(zz);
+    }
+
+    // Checksum: XOR of bytes [1] through [end-1], masked to 7 bits
+    uint8_t csum = 0;
+    for (std::size_t i = 1; i < out.size(); ++i)
+        csum ^= out[i];
+    out.push_back(csum & 0x7F);
+    out.push_back(0xF7);
+
+    return out;
+}
 
 // Parse the canonical UUID string "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" into bytes.
 edn::uuid parse_uuid(const std::string& s) noexcept {
@@ -876,6 +943,133 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
         else if (value_v->is<int64_t>())   value = static_cast<float>(value_v->get<int64_t>());
 
         cfg_.mod_engine->update_param(id, key, value);
+        break;
+    }
+
+    case ipc::msg_cc: {
+        // {:port N :channel N :cc N :value N}  — channel 0-15, cc 0-127, value 0-127
+        if (!cfg_.midi || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m = parsed->get<edn::map>();
+        auto get_u8 = [&](const char* kw, uint8_t def) -> uint8_t {
+            const auto* v = m.find_kw(kw);
+            return (v && v->is<int64_t>()) ? static_cast<uint8_t>(v->get<int64_t>()) : def;
+        };
+        const uint8_t ch  = get_u8("channel", 0) & 0x0F;
+        const uint8_t cc  = get_u8("cc",      0);
+        const uint8_t val = get_u8("value",   0);
+        cfg_.midi->send({static_cast<uint8_t>(0xB0 | ch), cc, val});
+        break;
+    }
+
+    case ipc::msg_pitch_bend: {
+        // {:port N :channel N :value N}  — value 0-16383, centre 8192
+        if (!cfg_.midi || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m = parsed->get<edn::map>();
+        auto get_i = [&](const char* kw, int64_t def) -> int64_t {
+            const auto* v = m.find_kw(kw);
+            return (v && v->is<int64_t>()) ? v->get<int64_t>() : def;
+        };
+        const uint8_t ch  = static_cast<uint8_t>(get_i("channel", 0) & 0x0F);
+        const int64_t raw = std::max(INT64_C(0), std::min(INT64_C(16383), get_i("value", 8192)));
+        cfg_.midi->send({static_cast<uint8_t>(0xE0 | ch),
+                         static_cast<uint8_t>(raw & 0x7F),
+                         static_cast<uint8_t>((raw >> 7) & 0x7F)});
+        break;
+    }
+
+    case ipc::msg_chan_pressure: {
+        // {:port N :channel N :value N}  — value 0-127
+        if (!cfg_.midi || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m = parsed->get<edn::map>();
+        auto get_u8 = [&](const char* kw, uint8_t def) -> uint8_t {
+            const auto* v = m.find_kw(kw);
+            return (v && v->is<int64_t>()) ? static_cast<uint8_t>(v->get<int64_t>()) : def;
+        };
+        const uint8_t ch  = get_u8("channel", 0) & 0x0F;
+        const uint8_t val = get_u8("value",   0);
+        cfg_.midi->send({static_cast<uint8_t>(0xD0 | ch), val});
+        break;
+    }
+
+    case ipc::msg_sysex: {
+        // {:port N :data [b0 b1 … bN]}  — raw SysEx bytes including F0 and F7
+        if (!cfg_.midi || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m      = parsed->get<edn::map>();
+        const auto* data_v = m.find_kw("data");
+        if (!data_v || !data_v->is<edn::vector>())
+            break;
+        std::vector<uint8_t> bytes;
+        bytes.reserve(data_v->get<edn::vector>().items.size());
+        for (const auto& item : data_v->get<edn::vector>().items) {
+            if (item.is<int64_t>())
+                bytes.push_back(static_cast<uint8_t>(item.get<int64_t>() & 0xFF));
+        }
+        if (!bytes.empty())
+            cfg_.midi->send(bytes);
+        break;
+    }
+
+    case ipc::msg_mts: {
+        // {:port N :tuning {midi→hz} :tuning-prog N :device-id N|:all}
+        // Assembles and sends a 408-byte MTS Bulk Dump SysEx.
+        if (!cfg_.midi || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m        = parsed->get<edn::map>();
+        const auto* tuning_v = m.find_kw("tuning");
+        if (!tuning_v || !tuning_v->is<edn::map>())
+            break;
+
+        // Build key→Hz lookup from the EDN map
+        std::unordered_map<int, double> tuning;
+        tuning.reserve(128);
+        for (const auto& [k, v] : tuning_v->get<edn::map>().entries) {
+            if (!k.is<int64_t>())
+                continue;
+            double hz = 0.0;
+            if (v.is<double>())        hz = v.get<double>();
+            else if (v.is<int64_t>())  hz = static_cast<double>(v.get<int64_t>());
+            tuning[static_cast<int>(k.get<int64_t>())] = hz;
+        }
+
+        const auto* prog_v = m.find_kw("tuning-prog");
+        const uint8_t prog = (prog_v && prog_v->is<int64_t>())
+            ? static_cast<uint8_t>(prog_v->get<int64_t>() & 0x7F) : 0;
+
+        const auto* dev_v = m.find_kw("device-id");
+        uint8_t device_id = 0x7F; // :all
+        if (dev_v && dev_v->is<int64_t>())
+            device_id = static_cast<uint8_t>(dev_v->get<int64_t>() & 0x7F);
+
+        cfg_.midi->send(mts_bulk_dump(tuning, prog, device_id));
         break;
     }
 

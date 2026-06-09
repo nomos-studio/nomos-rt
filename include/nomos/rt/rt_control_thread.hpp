@@ -8,10 +8,11 @@
 #include <nomos/rt/session.hpp>
 #include <nomos/rt/spsc_queue.hpp>
 
-// Forward declarations — avoid pulling rcu/urcu into consumers that only need the config.
+// Forward declarations — avoid pulling internal headers into consumers.
 namespace nomos::rt {
 class modulator_engine;
 class modulator_registry;
+class midi_io;  // midi_io.hpp is internal (GPL); consumers use a pointer
 }
 
 #include <atomic>
@@ -50,6 +51,7 @@ class rt_control_thread {
         sched_staging_queue* sched_staging{nullptr};  // null = immediate dispatch
         modulator_engine*    mod_engine{nullptr};     // null = modulator msgs silently dropped
         modulator_registry*  ext_registry{nullptr};   // user-defined modulator types; null = none
+        midi_io*             midi{nullptr};           // null = SysEx/MTS/CC frames silently dropped
     };
 
     explicit rt_control_thread(config cfg, param_queue& queue, input_event_queue& in_queue);
