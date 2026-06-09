@@ -8,7 +8,7 @@ Shared C++ runtime substrate for the [nomos-studio](https://github.com/nomos-stu
 |-----------|---------|-------------|
 | IPC channel | `nomos/rt/ipc.hpp`, `ipc_channel.hpp` | Unix domain socket framing; 8-byte header + EDN payload |
 | Session / txlog | `nomos/rt/session.hpp` | Opens a txlog SQLite database; maps SESSION-OPEN/CLOSE/REGISTER-SOURCE |
-| Control thread base | `nomos/rt/rt_control_thread.hpp` | Listens on the IPC socket; dispatches common message types; virtual extension point for CLAP/aion-specific messages |
+| Control thread base | `nomos/rt/rt_control_thread.hpp` | Listens on the IPC socket; dispatches common message types; virtual extension point for CLAP/aion-specific messages. Pass `midi_io*` in `config::midi` to enable direct SysEx/MTS/CC output (null = silently dropped) |
 | Time identity | `nomos/rt/time_identity.hpp` | `(current, pending)` timeline pair; mirrors `nous.link`; fires pending on `apply_at` |
 | Abstract modulator | `nomos/rt/abstract_modulator.hpp` | Pure virtual interface (`tick` → `modulator_output`, `update`); base for all built-in and custom modulators |
 | Modulator engine | `nomos/rt/modulator_engine.hpp` | Runs autonomous RT modulators at event-loop block rate; RCU-protected table; zero-allocation hot path |
@@ -56,6 +56,11 @@ Common message types (shared by kairos and aion):
 | `0x46` | `MSG-MODULATOR-START` | EDN `{:id :kw :type :slope\|:segment\|:slew\|... :rate 1.0 ...}` |
 | `0x47` | `MSG-MODULATOR-STOP` | EDN `{:id :kw}` |
 | `0x48` | `MSG-MODULATOR-UPDATE` | EDN `{:id :kw :key "rate" :value 0.5}` |
+| `0x49` | `MSG-CC` | EDN `{:channel N :cc N :value N}` → MIDI CC on the wired `midi_io` |
+| `0x4A` | `MSG-PITCH-BEND` | EDN `{:channel N :value N}` (0–16383, centre 8192) |
+| `0x4B` | `MSG-CHAN-PRESSURE` | EDN `{:channel N :value N}` (0–127) |
+| `0x4C` | `MSG-SYSEX` | EDN `{:data [byte ...]}` → raw SysEx bytes |
+| `0x4D` | `MSG-MTS` | EDN `{:tuning {midi-note→hz} :tuning-prog N :device-id :all\|N}` → 408-byte MTS Bulk Dump SysEx |
 | `0x50` | `MSG-TICK` | EDN `{:beat D :tick-n N}` pushed on each 24 PPQN tick |
 
 ## Time identity
@@ -207,7 +212,7 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-122 tests; covers all six modulator types, modulator engine, spsc_queue, and time_identity.
+20 test files; covers all modulator types (slope, segment, slew, shift-register, fractal, stochastic, graph, faust, bools-ring, cipher, cv-channel-decoder, divine-cmos, genie, lets-splosh, sloth-chaos, squid-axon, statues), modulator engine, spsc_queue, and time_identity.
 
 ## Dependencies
 
