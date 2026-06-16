@@ -10,12 +10,12 @@
 namespace nomos::rt {
 
 // Minimal UDP OSC server.  Listens on `port` and converts a small set of
-// /cljseq messages into clap_event_union values pushed to `queue`.
+// /nous messages into clap_event_union values pushed to `queue`.
 //
 // Supported addresses (all events land at sample offset 0 in the next block):
-//   /cljseq/note/on   ,iiif   port(i), channel(i), key(i), velocity(f, 0..1)
-//   /cljseq/note/off  ,iii    port(i), channel(i), key(i)
-//   /cljseq/midi      ,iiii   port(i), b0(i), b1(i), b2(i)
+//   /nous/note/on   ,iiif   port(i), channel(i), key(i), velocity(f, 0..1)
+//   /nous/note/off  ,iii    port(i), channel(i), key(i)
+//   /nous/midi      ,iiii   port(i), b0(i), b1(i), b2(i)
 class osc_server {
   public:
     osc_server(uint16_t port, input_event_queue& queue);

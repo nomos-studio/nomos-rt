@@ -8,7 +8,7 @@
 
 namespace nomos::rt {
 
-// Beat-quantized event scheduler — part of cljseq-rt.
+// Beat-quantized event scheduler — part of nomos-rt.
 //
 // Control thread pushes beat-tagged events via staging().
 // Audio/event thread fires due events each tick via tick(current_beat, fn).

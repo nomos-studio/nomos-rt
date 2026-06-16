@@ -119,7 +119,7 @@ void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
     const uint8_t*         args  = buf + args_off;
     const std::size_t      avail = (args_off < len) ? len - args_off : 0;
 
-    if (address == "/cljseq/note/on" && types == "iiif" && avail >= 16) {
+    if (address == "/nous/note/on" && types == "iiif" && avail >= 16) {
         clap_event_union ev{};
         ev.note.header.size     = sizeof(clap_event_note_t);
         ev.note.header.time     = 0;
@@ -133,7 +133,7 @@ void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
         ev.note.velocity        = static_cast<double>(osc_float(args + 12));
         queue_.push(ev);
 
-    } else if (address == "/cljseq/note/off" && types == "iii" && avail >= 12) {
+    } else if (address == "/nous/note/off" && types == "iii" && avail >= 12) {
         clap_event_union ev{};
         ev.note.header.size     = sizeof(clap_event_note_t);
         ev.note.header.time     = 0;
@@ -147,7 +147,7 @@ void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
         ev.note.velocity        = 0.0;
         queue_.push(ev);
 
-    } else if (address == "/cljseq/midi" && types == "iiii" && avail >= 16) {
+    } else if (address == "/nous/midi" && types == "iiii" && avail >= 16) {
         clap_event_union ev{};
         ev.midi.header.size     = sizeof(clap_event_midi_t);
         ev.midi.header.time     = 0;

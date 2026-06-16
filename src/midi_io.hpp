@@ -15,7 +15,7 @@ namespace nomos::rt {
 // Thin RAII wrapper around RtMidiOut + RtMidiIn.  Lives only in the executable
 // (GPL scope).
 //
-// Channel arguments are 1-indexed (matching cljseq convention).
+// Channel arguments are 1-indexed (matching nous convention).
 // Port-selection by name is a substring match — first matching port wins.
 //
 // MIDI input: hardware note and MIDI events are translated to clap_event_union

@@ -33,7 +33,7 @@ using param_queue = spsc_queue<param_event, param_queue_capacity>;
 // Non-CLAP foundation of the kairos control thread.
 //
 // Listens on a Unix domain socket, accepts one connection at a time, and
-// dispatches on the common cljseq-rt message types:
+// dispatches on the common nomos-rt message types:
 //   SESSION-OPEN / SESSION-CLOSE / REGISTER-SOURCE
 //   TX-LOG / PARAM-SET
 //   NOTE-ON / NOTE-OFF / MIDI-IN

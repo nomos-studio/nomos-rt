@@ -12,7 +12,7 @@ struct timeline {
     double beat{0.0};
 };
 
-// Mirrors the Clojure shape from cljseq.link:
+// Mirrors the Clojure shape from nous.link:
 //   {:timeline <tl> :policy :bar-quantize :apply-at 36.0}
 // `:apply_at` is the resolved beat; authoritative for firing.
 // `:policy` is metadata for tx_log and tooling — not a re-resolve instruction.
