@@ -49,6 +49,9 @@ bool midi_io::open_port_by_name(const std::string &name) {
 bool midi_io::open_virtual_port(const std::string &name) {
   try {
     out_.openVirtualPort(name);
+    // RtMidi's CoreMIDI backend sets data->endpoint but NOT connected_, so
+    // isPortOpen() returns false after openVirtualPort().  Track it here.
+    virtual_port_open_ = true;
     std::fprintf(stderr, "[midi] opened virtual output port '%s'\n",
                  name.c_str());
     return true;
@@ -63,9 +66,12 @@ void midi_io::close() {
     out_.closePort();
     std::fprintf(stderr, "[midi] output port closed\n");
   }
+  virtual_port_open_ = false;
 }
 
-bool midi_io::is_open() const noexcept { return out_.isPortOpen(); }
+bool midi_io::is_open() const noexcept {
+  return out_.isPortOpen() || virtual_port_open_;
+}
 
 void midi_io::send(const std::vector<uint8_t> &bytes) {
   if (!is_open())
@@ -145,6 +151,10 @@ bool midi_io::open_input_port_by_name(const std::string &name,
   return false;
 }
 
+void midi_io::set_echo_callback(echo_cb_t cb) noexcept {
+  echo_cb_ = std::move(cb);
+}
+
 void midi_io::close_input() {
   if (in_.isPortOpen()) {
     in_.cancelCallback();
@@ -161,6 +171,16 @@ void midi_io::midi_callback(double /*timestamp*/, std::vector<uint8_t> *msg,
   if (!msg || msg->empty())
     return;
   auto *self = static_cast<midi_io *>(user_data);
+
+  // Echo takes priority: when an echo callback is registered (self-loopback
+  // or monitoring mode), forward the raw bytes and skip the CLAP queue.
+  // This breaks the feedback loop that would otherwise occur when the virtual
+  // output port is also the input port.
+  if (self->echo_cb_) {
+    self->echo_cb_(*msg);
+    return;
+  }
+
   if (!self->in_queue_)
     return;
 

@@ -6,6 +6,7 @@
 #include <RtMidi.h>
 
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -51,6 +52,12 @@ public:
   void close_input();
   bool input_is_open() const noexcept;
 
+  // Optional callback fired on every received raw MIDI message, before the
+  // event is enqueued for the CLAP graph.  Called on the CoreMIDI thread —
+  // the callback must be thread-safe.  Set before opening the input port.
+  using echo_cb_t = std::function<void(const std::vector<uint8_t> &)>;
+  void set_echo_callback(echo_cb_t cb) noexcept;
+
   static void list_ports();
 
 private:
@@ -60,6 +67,8 @@ private:
   RtMidiOut out_;
   RtMidiIn in_;
   input_event_queue *in_queue_{nullptr};
+  echo_cb_t echo_cb_;
+  bool virtual_port_open_{false};
   std::mutex send_mutex_;
 };
 
