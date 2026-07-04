@@ -1,0 +1,28 @@
+version = 1
+SPDX-PackageName = "nomos-rt"
+SPDX-PackageSupplier = "rodgert@twrodgers.com"
+SPDX-PackageDownloadLocation = "https://github.com/nomos-studio/nomos-rt"
+
+# Authored source — SPDX-License-Identifier already inline (GPL-2.0-or-later or
+# LGPL-2.1-or-later per file); aggregate adds the missing FileCopyrightText.
+[[annotations]]
+path = ["src/**", "include/**", "tests/**", "scripts/**", "CMakeLists.txt"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025-2026 nomos-studio contributors"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+# Build system and project metadata
+[[annotations]]
+path = ["README.md", "CHANGELOG.md", "CMakePresets.json", ".gitignore", ".github/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025-2026 nomos-studio contributors"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+# third_party/liburcu — carries its own inline SPDX headers (LGPL-2.1-only,
+# LGPL-2.1-or-later, MIT, LicenseRef-Boehm-GC) and its own copyright notices.
+# Aggregate adds nothing for files that already have both; covers any that don't.
+[[annotations]]
+path = "third_party/liburcu/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "liburcu contributors"
+SPDX-License-Identifier = "LGPL-2.1-only"
