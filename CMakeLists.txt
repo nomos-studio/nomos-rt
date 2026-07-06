@@ -19,6 +19,7 @@ project(nomos-rt
 
 include(FetchContent)
 include(GNUInstallDirs)
+include(cmake/Sanitizers.cmake)
 
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
     "Skip network fetch if already populated")
@@ -192,6 +193,8 @@ target_link_libraries(nomos-rt
         rtmidi
         rtaudio
 )
+
+nomos_sanitize_target(nomos-rt)
 
 set_target_properties(nomos-rt PROPERTIES
     CXX_STANDARD          20

@@ -29,6 +29,7 @@ target_link_libraries(nomos-rt-tests
         nomos::rt
         nomos::rt-exe-headers
         Catch2::Catch2WithMain
+        sanitizers::sanitizers
 )
 
 set_target_properties(nomos-rt-tests PROPERTIES
