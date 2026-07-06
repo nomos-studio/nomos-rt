@@ -30,6 +30,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache CMake FetchContent deps
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-${{ matrix.compiler }}-nomos-rt-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.compiler }}-nomos-rt-cmake-deps-
+
       - name: Check out txlog @ main
         uses: actions/checkout@v4
         with:
@@ -45,13 +52,6 @@ jobs:
       - name: Install system deps (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libsqlite3-dev
-
-      - name: Cache CMake FetchContent deps
-        uses: actions/cache@v4
-        with:
-          path: build/_deps
-          key: ${{ runner.os }}-${{ matrix.compiler }}-nomos-rt-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.compiler }}-nomos-rt-cmake-deps-
 
       - name: Configure
         env:
@@ -85,6 +85,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache CMake FetchContent deps (sanitize)
+        uses: actions/cache@v4
+        with:
+          path: build-san/_deps
+          key: ${{ runner.os }}-clang-nomos-rt-san-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-clang-nomos-rt-san-cmake-deps-
+
       - name: Check out txlog @ main
         uses: actions/checkout@v4
         with:
@@ -100,13 +107,6 @@ jobs:
       - name: Install system deps (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libsqlite3-dev
-
-      - name: Cache CMake FetchContent deps (sanitize)
-        uses: actions/cache@v4
-        with:
-          path: build-san/_deps
-          key: ${{ runner.os }}-clang-nomos-rt-san-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: ${{ runner.os }}-clang-nomos-rt-san-cmake-deps-
 
       - name: Configure
         env:
@@ -136,5 +136,5 @@ jobs:
 
       - name: Check formatting
         run: |
-          find include src -name '*.cpp' -o -name '*.hpp' | \
+          find include src tests -name '*.cpp' -o -name '*.hpp' | \
             xargs clang-format --dry-run --Werror
