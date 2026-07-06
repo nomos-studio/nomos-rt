@@ -51,63 +51,63 @@ static constexpr uint32_t lfsr_taps[33] = {
     0x80200003, // 32 x^32+x^22+x^2+x+1
 };
 
-shift_register_modulator::shift_register_modulator(mode m, int length, int dac_bits)
-    : mode_(m)
-    , length_(std::clamp(length, 2, 32))
-    , dac_bits_(std::clamp(dac_bits, 1, std::min(length_, 8)))
-    , reg_(0xACE1u & ((1u << length_) - 1u))
-{
-    if (reg_ == 0u)
-        reg_ = 1u;  // LFSR must be non-zero to produce any sequence
+shift_register_modulator::shift_register_modulator(mode m, int length,
+                                                   int dac_bits)
+    : mode_(m), length_(std::clamp(length, 2, 32)),
+      dac_bits_(std::clamp(dac_bits, 1, std::min(length_, 8))),
+      reg_(0xACE1u & (length_ < 32 ? ((1u << length_) - 1u) : 0xFFFF'FFFFu)) {
+  if (reg_ == 0u)
+    reg_ = 1u; // LFSR must be non-zero to produce any sequence
 }
 
-modulator_output shift_register_modulator::tick(double /*beat*/, float tick_rate_hz) {
-    if (tick_rate_hz <= 0.0f)
-        return {.cv = dac_output() * depth_, .state = reg_};
+modulator_output shift_register_modulator::tick(double /*beat*/,
+                                                float tick_rate_hz) {
+  if (tick_rate_hz <= 0.0f)
+    return {.cv = dac_output() * depth_, .state = reg_};
 
-    clock_phase_ += clock_rate_ / tick_rate_hz;
+  clock_phase_ += clock_rate_ / tick_rate_hz;
 
-    if (clock_phase_ < 1.0f)
-        return {.cv = dac_output() * depth_, .state = reg_};
+  if (clock_phase_ < 1.0f)
+    return {.cv = dac_output() * depth_, .state = reg_};
 
-    clock_phase_ -= 1.0f;
+  clock_phase_ -= 1.0f;
 
-    bool new_bit;
-    switch (mode_) {
-        case mode::lfsr:
-            new_bit = lfsr_new_bit();
-            break;
-        case mode::rungler: {
-            const bool msb = (reg_ >> (length_ - 1)) & 1u;
-            new_bit = (data_ > param_) ^ msb;
-            break;
-        }
-        case mode::turing: {
-            const bool msb = (reg_ >> (length_ - 1)) & 1u;
-            new_bit = (next_random() < param_) ? !msb : msb;
-            break;
-        }
-        case mode::open:
-            new_bit = data_ > 0.5f;
-            break;
-    }
+  bool new_bit;
+  switch (mode_) {
+  case mode::lfsr:
+    new_bit = lfsr_new_bit();
+    break;
+  case mode::rungler: {
+    const bool msb = (reg_ >> (length_ - 1)) & 1u;
+    new_bit = (data_ > param_) ^ msb;
+    break;
+  }
+  case mode::turing: {
+    const bool msb = (reg_ >> (length_ - 1)) & 1u;
+    new_bit = (next_random() < param_) ? !msb : msb;
+    break;
+  }
+  case mode::open:
+    new_bit = data_ > 0.5f;
+    break;
+  }
 
-    const uint32_t mask = (length_ < 32) ? ((1u << length_) - 1u) : 0xFFFF'FFFFu;
-    reg_ = ((reg_ << 1u) | (new_bit ? 1u : 0u)) & mask;
-    gate_out_ = new_bit;
+  const uint32_t mask = (length_ < 32) ? ((1u << length_) - 1u) : 0xFFFF'FFFFu;
+  reg_ = ((reg_ << 1u) | (new_bit ? 1u : 0u)) & mask;
+  gate_out_ = new_bit;
 
-    return {.cv = dac_output() * depth_, .gate = gate_out_, .state = reg_};
+  return {.cv = dac_output() * depth_, .gate = gate_out_, .state = reg_};
 }
 
 void shift_register_modulator::update(std::string_view key, float value) {
-    if (key == "clock_rate")
-        clock_rate_ = std::clamp(value, 0.001f, 1000.0f);
-    else if (key == "data")
-        data_ = std::clamp(value, 0.0f, 1.0f);
-    else if (key == "param")
-        param_ = std::clamp(value, 0.0f, 1.0f);
-    else if (key == "depth")
-        depth_ = std::clamp(value, 0.0f, 1.0f);
+  if (key == "clock_rate")
+    clock_rate_ = std::clamp(value, 0.001f, 1000.0f);
+  else if (key == "data")
+    data_ = std::clamp(value, 0.0f, 1.0f);
+  else if (key == "param")
+    param_ = std::clamp(value, 0.0f, 1.0f);
+  else if (key == "depth")
+    depth_ = std::clamp(value, 0.0f, 1.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -115,28 +115,28 @@ void shift_register_modulator::update(std::string_view key, float value) {
 // ---------------------------------------------------------------------------
 
 bool shift_register_modulator::lfsr_new_bit() const noexcept {
-    // XOR-parity of all bits selected by the tap mask.
-    uint32_t x = reg_ & lfsr_taps[static_cast<std::size_t>(length_)];
-    x ^= x >> 16;
-    x ^= x >> 8;
-    x ^= x >> 4;
-    x ^= x >> 2;
-    x ^= x >> 1;
-    return x & 1u;
+  // XOR-parity of all bits selected by the tap mask.
+  uint32_t x = reg_ & lfsr_taps[static_cast<std::size_t>(length_)];
+  x ^= x >> 16;
+  x ^= x >> 8;
+  x ^= x >> 4;
+  x ^= x >> 2;
+  x ^= x >> 1;
+  return x & 1u;
 }
 
 float shift_register_modulator::dac_output() const noexcept {
-    // Read dac_bits_ most-significant bits of the register.
-    const int    shift   = length_ - dac_bits_;
-    const uint32_t raw   = (reg_ >> shift) & ((1u << dac_bits_) - 1u);
-    const float  max_val = static_cast<float>((1u << dac_bits_) - 1u);
-    return (static_cast<float>(raw) / max_val) * 2.0f - 1.0f;
+  // Read dac_bits_ most-significant bits of the register.
+  const int shift = length_ - dac_bits_;
+  const uint32_t raw = (reg_ >> shift) & ((1u << dac_bits_) - 1u);
+  const float max_val = static_cast<float>((1u << dac_bits_) - 1u);
+  return (static_cast<float>(raw) / max_val) * 2.0f - 1.0f;
 }
 
 float shift_register_modulator::next_random() noexcept {
-    // Park-Miller LCG, period ~2^31.
-    rand_state_ = rand_state_ * 1664525u + 1013904223u;
-    return static_cast<float>(rand_state_ >> 8) * (1.0f / 16777216.0f);
+  // Park-Miller LCG, period ~2^31.
+  rand_state_ = rand_state_ * 1664525u + 1013904223u;
+  return static_cast<float>(rand_state_ >> 8) * (1.0f / 16777216.0f);
 }
 
 } // namespace nomos::rt
