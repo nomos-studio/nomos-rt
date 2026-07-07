@@ -34,8 +34,8 @@ modulator_output segment_modulator::tick(double /*beat*/, float tick_rate_hz) {
         cur_seg_       = new_seg;
     }
 
-    const auto& seg = defs_[static_cast<std::size_t>(cur_seg_)];
-    float       output;
+    const auto& seg    = defs_[static_cast<std::size_t>(cur_seg_)];
+    float       output = 0.0f;
     switch (seg.kind) {
     case type::ramp:
         output = seg_start_val_ + local_p * (seg.primary - seg_start_val_);
