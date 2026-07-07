@@ -99,6 +99,11 @@ set_target_properties(urcu-flavor PROPERTIES
     C_STANDARD   11
     C_STANDARD_REQUIRED ON
 )
+# urcu-flavor is intentionally NOT passed to nomos_sanitize_target: liburcu-bp
+# contains a struct alignment pattern that UBSan flags as misaligned access
+# (urcu_bp_reader, 16-byte aligned, macOS/ARM64). TSan still intercepts
+# urcu's pthread_mutex_t and __atomic operations via weak-symbol interposition
+# even without compiler instrumentation of the C library itself.
 
 # RtMidi — cross-platform MIDI I/O (MIT).
 FetchContent_Declare(rtmidi

@@ -43,12 +43,24 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "NOMOS_SANITIZE": "address,undefined"
       }
+    },
+    {
+      "name": "tsan",
+      "displayName": "Sanitize (TSan)",
+      "description": "Debug build with ThreadSanitizer — gate 3 of CI. TSan is mutually exclusive with ASan; UBSan is covered by the sanitize preset.",
+      "binaryDir": "${sourceDir}/build-tsan",
+      "cacheVariables": {
+        "NOMOS_RT_BUILD_TESTS": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "NOMOS_SANITIZE": "thread"
+      }
     }
   ],
   "buildPresets": [
     { "name": "dev",      "configurePreset": "dev" },
     { "name": "ci",       "configurePreset": "ci" },
     { "name": "sanitize", "configurePreset": "sanitize" },
+    { "name": "tsan",     "configurePreset": "tsan" },
     { "name": "release",  "configurePreset": "release" }
   ],
   "testPresets": [
@@ -65,6 +77,11 @@
     {
       "name": "sanitize",
       "configurePreset": "sanitize",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
       "output": { "outputOnFailure": true }
     }
   ]

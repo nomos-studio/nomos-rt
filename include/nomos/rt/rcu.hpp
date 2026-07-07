@@ -35,8 +35,9 @@
 //       mgr.store(std::make_unique<T>(...));   // atomic swap + call_rcu retire
 //
 //   Reader (audio callback, lock-free fast path):
-//       auto guard = mgr.read();               // RAII read-side critical section
-//       guard->method();                        // T is stable for guard's lifetime
+//       auto guard = mgr.read();               // RAII read-side critical
+//       section guard->method();                        // T is stable for
+//       guard's lifetime
 //
 // The writer path uses call_rcu() (non-blocking) so the control thread is
 // never stalled waiting for the audio callback to exit its read-side section.
@@ -48,113 +49,128 @@
 
 namespace nomos::rt::rcu_detail {
 
-inline void read_lock() noexcept {
-    urcu_bp_read_lock();
-}
-inline void read_unlock() noexcept {
-    urcu_bp_read_unlock();
+inline void read_lock() noexcept { urcu_bp_read_lock(); }
+inline void read_unlock() noexcept { urcu_bp_read_unlock(); }
+
+inline void call(struct rcu_head *head,
+                 void (*cb)(struct rcu_head *)) noexcept {
+  urcu_bp_call_rcu(head, cb);
 }
 
-inline void call(struct rcu_head* head, void (*cb)(struct rcu_head*)) noexcept {
-    urcu_bp_call_rcu(head, cb);
-}
-
-inline void synchronize() noexcept {
-    urcu_bp_synchronize_rcu();
-}
+inline void synchronize() noexcept { urcu_bp_synchronize_rcu(); }
 
 } // namespace nomos::rt::rcu_detail
 
 namespace nomos::rt {
 
 template <typename T> class rcu_managed {
+public:
+  // Construct with an initial value.  Takes ownership.
+  explicit rcu_managed(std::unique_ptr<T> initial = nullptr) noexcept
+      : ptr_(initial.release()) {}
+
+  ~rcu_managed() {
+    // Drain any pending call_rcu callbacks before destroying.
+    rcu_detail::synchronize();
+    delete ptr_.load(std::memory_order_acquire);
+  }
+
+  rcu_managed(const rcu_managed &) = delete;
+  rcu_managed &operator=(const rcu_managed &) = delete;
+
+  // -----------------------------------------------------------------------
+  // reader_guard — RAII read-side critical section.
+  //
+  // Constructed on the audio thread; holds the pointer stable for its
+  // lifetime.  Must not outlive the rcu_managed that produced it.
+  // -----------------------------------------------------------------------
+  class reader_guard {
   public:
-    // Construct with an initial value.  Takes ownership.
-    explicit rcu_managed(std::unique_ptr<T> initial = nullptr) noexcept : ptr_(initial.release()) {}
-
-    ~rcu_managed() {
-        // Drain any pending call_rcu callbacks before destroying.
-        rcu_detail::synchronize();
-        delete ptr_.load(std::memory_order_acquire);
+    explicit reader_guard(const rcu_managed &owner) noexcept : ptr_(nullptr) {
+      rcu_detail::read_lock();
+      ptr_ = owner.ptr_.load(std::memory_order_acquire);
     }
 
-    rcu_managed(const rcu_managed&)            = delete;
-    rcu_managed& operator=(const rcu_managed&) = delete;
+    ~reader_guard() noexcept { rcu_detail::read_unlock(); }
 
-    // -----------------------------------------------------------------------
-    // reader_guard — RAII read-side critical section.
-    //
-    // Constructed on the audio thread; holds the pointer stable for its
-    // lifetime.  Must not outlive the rcu_managed that produced it.
-    // -----------------------------------------------------------------------
-    class reader_guard {
-      public:
-        explicit reader_guard(const rcu_managed& owner) noexcept : ptr_(nullptr) {
-            rcu_detail::read_lock();
-            ptr_ = owner.ptr_.load(std::memory_order_acquire);
-        }
+    reader_guard(const reader_guard &) = delete;
+    reader_guard &operator=(const reader_guard &) = delete;
 
-        ~reader_guard() noexcept { rcu_detail::read_unlock(); }
+    T *operator->() noexcept { return ptr_; }
+    const T *operator->() const noexcept { return ptr_; }
+    T &operator*() noexcept { return *ptr_; }
+    const T &operator*() const noexcept { return *ptr_; }
 
-        reader_guard(const reader_guard&)            = delete;
-        reader_guard& operator=(const reader_guard&) = delete;
-
-        T*       operator->() noexcept { return ptr_; }
-        const T* operator->() const noexcept { return ptr_; }
-        T&       operator*() noexcept { return *ptr_; }
-        const T& operator*() const noexcept { return *ptr_; }
-
-        explicit operator bool() const noexcept { return ptr_ != nullptr; }
-
-      private:
-        T* ptr_;
-    };
-
-    // Obtain a read-side guard.  Call from the audio thread.
-    [[nodiscard]] reader_guard read() const noexcept { return reader_guard{*this}; }
-
-    // -----------------------------------------------------------------------
-    // store() — writer path (control thread).
-    //
-    // Atomically installs next as the new value and schedules the old pointer
-    // for deferred reclamation via call_rcu().  Returns immediately; the old
-    // T is destroyed once all concurrent readers have exited.
-    // -----------------------------------------------------------------------
-    void store(std::unique_ptr<T> next) noexcept {
-        T* incoming = next.release();
-        T* outgoing = ptr_.exchange(incoming, std::memory_order_release);
-        if (!outgoing)
-            return;
-
-        // Embed the rcu_head inside a retire_node so call_rcu can reach it
-        // without any allocation inside the callback.
-        auto* node = new retire_node{outgoing};
-        rcu_detail::call(&node->head, retire_cb);
-    }
-
-    // Pointer to current value without read-side lock — only safe when the
-    // caller can guarantee no concurrent writers (e.g. single-threaded tests).
-    T* unsafe_get() const noexcept { return ptr_.load(std::memory_order_relaxed); }
+    explicit operator bool() const noexcept { return ptr_ != nullptr; }
 
   private:
-    // retire_node carries the outgoing pointer through call_rcu's callback.
-    // It is allocated on the heap by store() and freed by retire_cb().
-    struct retire_node {
-        struct rcu_head head{}; // caa_container_of target — retire_node is standard-layout
-        T*              ptr;
+    T *ptr_;
+  };
 
-        explicit retire_node(T* p) noexcept : ptr(p) {}
-    };
+  // Obtain a read-side guard.  Call from the audio thread.
+  [[nodiscard]] reader_guard read() const noexcept {
+    return reader_guard{*this};
+  }
 
-    static void retire_cb(struct rcu_head* head) noexcept {
-        // caa_container_of is liburcu's container_of (uses offsetof);
-        // retire_node must be standard-layout for offsetof to be well-defined.
-        auto* node = caa_container_of(head, retire_node, head);
-        delete node->ptr;
-        delete node;
-    }
+  // -----------------------------------------------------------------------
+  // store() — writer path (control thread).
+  //
+  // Atomically installs next as the new value and schedules the old pointer
+  // for deferred reclamation via call_rcu().  Returns immediately; the old
+  // T is destroyed once all concurrent readers have exited.
+  // -----------------------------------------------------------------------
+  void store(std::unique_ptr<T> next) noexcept {
+    T *incoming = next.release();
+    T *outgoing = ptr_.exchange(incoming, std::memory_order_release);
+    if (!outgoing)
+      return;
 
-    std::atomic<T*> ptr_;
+    // Embed the rcu_head inside a retire_node so call_rcu can reach it
+    // without any allocation inside the callback.
+    auto *node = new retire_node{outgoing};
+    rcu_detail::call(&node->head, retire_cb);
+  }
+
+  // Pointer to current value without read-side lock — only safe when the
+  // caller can guarantee no concurrent writers (e.g. single-threaded tests).
+  T *unsafe_get() const noexcept {
+    return ptr_.load(std::memory_order_relaxed);
+  }
+
+private:
+  // retire_node carries the outgoing pointer through call_rcu's callback.
+  // It is allocated on the heap by store() and freed by retire_cb().
+  struct retire_node {
+    struct rcu_head
+        head{}; // caa_container_of target — retire_node is standard-layout
+    T *ptr;
+
+    explicit retire_node(T *p) noexcept : ptr(p) {}
+  };
+
+  static void retire_cb(struct rcu_head *head) noexcept {
+    // caa_container_of is liburcu's container_of (uses offsetof);
+    // retire_node must be standard-layout for offsetof to be well-defined.
+    auto *node = caa_container_of(head, retire_node, head);
+    delete node->ptr;
+    delete node;
+  }
+
+  std::atomic<T *> ptr_;
 };
+
+// Pre-warm the liburcu reader registration for the calling OS thread.
+//
+// urcu_bp_read_lock() performs a one-time blocking registration on the first
+// call from any given thread: pthread_sigmask, registry mutex, possible arena
+// allocation. None of these are realtime-safe. Call pre_warm_rcu_reader()
+// once from each thread that will later call rcu_managed::read() before that
+// thread is given SCHED_FIFO scheduling or becomes a CLAP process() callback.
+// In a CLAP plugin the right call site is activate(), which is guaranteed to
+// run before start_processing()/process().
+inline void pre_warm_rcu_reader() noexcept {
+  rcu_detail::read_lock();
+  rcu_detail::read_unlock();
+}
 
 } // namespace nomos::rt

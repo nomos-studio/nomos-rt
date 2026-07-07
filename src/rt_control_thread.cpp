@@ -32,6 +32,7 @@
 #include <array>
 #include <cerrno>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -939,7 +940,15 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message &msg,
           mod->update(key, fv);
         }
         cfg_.mod_engine->start(std::move(id), std::move(mod));
+      } else {
+        fprintf(stderr,
+                "nomos-rt: msg_modulator_start: unrecognised type '%.*s'\n",
+                static_cast<int>(type_name.size()), type_name.data());
       }
+    } else {
+      fprintf(stderr,
+              "nomos-rt: msg_modulator_start: unrecognised type '%.*s'\n",
+              static_cast<int>(type_name.size()), type_name.data());
     }
     break;
   }
