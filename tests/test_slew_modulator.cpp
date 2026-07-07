@@ -37,7 +37,7 @@ TEST_CASE("slew_modulator: initial output is zero", "[slew]") {
 
 TEST_CASE("slew_modulator: eor and eoc false at construction", "[slew]") {
     slew_modulator m;
-    const auto out = m.tick(0.0, tick_rate);
+    const auto     out = m.tick(0.0, tick_rate);
     REQUIRE(!out.gate);
     REQUIRE(!out.gate2);
 }
@@ -104,10 +104,11 @@ TEST_CASE("slew_modulator: lag mode uses rise for upward movement", "[slew][lag]
 
 TEST_CASE("slew_modulator: lag mode uses fall for downward movement", "[slew][lag]") {
     slew_modulator m;
-    m.update("rise",  0.001f);
-    m.update("fall",  0.1f);
+    m.update("rise", 0.001f);
+    m.update("fall", 0.1f);
     m.update("input", 1.0f);
-    for (int i = 0; i < 200; ++i) m.tick(0.0, tick_rate);
+    for (int i = 0; i < 200; ++i)
+        m.tick(0.0, tick_rate);
 
     m.update("input", -1.0f);
     const float before = m.tick(0.0, tick_rate).cv;
@@ -139,7 +140,10 @@ TEST_CASE("slew_modulator: trig starts a rise-fall cycle", "[slew][trig]") {
 
     bool saw_eor = false;
     for (int i = 0; i < 20; ++i) {
-        if (m.tick(0.0, tick_rate).gate) { saw_eor = true; break; }
+        if (m.tick(0.0, tick_rate).gate) {
+            saw_eor = true;
+            break;
+        }
     }
     REQUIRE(saw_eor);
 }
@@ -150,7 +154,8 @@ TEST_CASE("slew_modulator: trig eor fires exactly once", "[slew][trig]") {
 
     int eor_count = 0;
     for (int i = 0; i < 50; ++i) {
-        if (m.tick(0.0, tick_rate).gate) ++eor_count;
+        if (m.tick(0.0, tick_rate).gate)
+            ++eor_count;
     }
     REQUIRE(eor_count == 1);
 }
@@ -161,7 +166,10 @@ TEST_CASE("slew_modulator: trig eoc fires after fall completes", "[slew][trig]")
 
     bool saw_eoc = false;
     for (int i = 0; i < 50; ++i) {
-        if (m.tick(0.0, tick_rate).gate2) { saw_eoc = true; break; }
+        if (m.tick(0.0, tick_rate).gate2) {
+            saw_eoc = true;
+            break;
+        }
     }
     REQUIRE(saw_eoc);
 }
@@ -176,7 +184,8 @@ TEST_CASE("slew_modulator: after trig cycle completes, returns to lag", "[slew][
         saw_eoc = m.tick(0.0, tick_rate).gate2;
     REQUIRE(saw_eoc);
 
-    for (int i = 0; i < 500; ++i) m.tick(0.0, tick_rate);
+    for (int i = 0; i < 500; ++i)
+        m.tick(0.0, tick_rate);
     REQUIRE(m.tick(0.0, tick_rate).cv >= 0.49f);
 }
 
@@ -188,12 +197,14 @@ TEST_CASE("slew_modulator: cycle mode produces oscillating output", "[slew][cycl
     auto m = make_fast();
     m.update("cycle", 1.0f);
 
-    float min_v =  1.0f;
+    float min_v = 1.0f;
     float max_v = -1.0f;
     for (int i = 0; i < 200; ++i) {
         const float v = m.tick(0.0, tick_rate).cv;
-        if (v < min_v) min_v = v;
-        if (v > max_v) max_v = v;
+        if (v < min_v)
+            min_v = v;
+        if (v > max_v)
+            max_v = v;
     }
     REQUIRE(max_v >= 0.9f);
     REQUIRE(min_v <= -0.9f);
@@ -205,7 +216,8 @@ TEST_CASE("slew_modulator: cycle mode eor fires on each rise completion", "[slew
 
     int eor_count = 0;
     for (int i = 0; i < 200; ++i) {
-        if (m.tick(0.0, tick_rate).gate) ++eor_count;
+        if (m.tick(0.0, tick_rate).gate)
+            ++eor_count;
     }
     REQUIRE(eor_count > 1);
 }
@@ -216,28 +228,36 @@ TEST_CASE("slew_modulator: cycle mode eoc fires on each fall completion", "[slew
 
     int eoc_count = 0;
     for (int i = 0; i < 200; ++i) {
-        if (m.tick(0.0, tick_rate).gate2) ++eoc_count;
+        if (m.tick(0.0, tick_rate).gate2)
+            ++eoc_count;
     }
     REQUIRE(eoc_count > 1);
 }
 
 TEST_CASE("slew_modulator: cycle mode asymmetric rise and fall", "[slew][cycle]") {
     slew_modulator m;
-    m.update("rise",  0.1f);
-    m.update("fall",  0.001f);
+    m.update("rise", 0.1f);
+    m.update("fall", 0.001f);
     m.update("cycle", 1.0f);
 
-    int ticks_rising = 0, ticks_falling = 0;
-    bool in_fall = false;
+    int  ticks_rising = 0, ticks_falling = 0;
+    bool in_fall  = false;
     bool seen_eor = false;
 
     for (int i = 0; i < 500; ++i) {
         const auto out = m.tick(0.0, tick_rate);
-        if (out.gate)  { in_fall = true;  seen_eor = true; }
-        if (out.gate2) { in_fall = false; }
+        if (out.gate) {
+            in_fall  = true;
+            seen_eor = true;
+        }
+        if (out.gate2) {
+            in_fall = false;
+        }
         if (seen_eor) {
-            if (in_fall) ++ticks_falling;
-            else         ++ticks_rising;
+            if (in_fall)
+                ++ticks_falling;
+            else
+                ++ticks_rising;
         }
     }
     REQUIRE(ticks_rising > ticks_falling * 5);
@@ -245,8 +265,8 @@ TEST_CASE("slew_modulator: cycle mode asymmetric rise and fall", "[slew][cycle]"
 
 TEST_CASE("slew_modulator: trig in cycle mode resets cycle", "[slew][cycle]") {
     slew_modulator m;
-    m.update("rise",  0.1f);
-    m.update("fall",  0.1f);
+    m.update("rise", 0.1f);
+    m.update("fall", 0.1f);
     m.update("cycle", 1.0f);
 
     m.tick(0.0, tick_rate);
@@ -257,7 +277,8 @@ TEST_CASE("slew_modulator: trig in cycle mode resets cycle", "[slew][cycle]") {
     REQUIRE(v < 0.0f);
 }
 
-TEST_CASE("slew_modulator: disabling cycle after trig completes fall, then idles", "[slew][cycle]") {
+TEST_CASE("slew_modulator: disabling cycle after trig completes fall, then idles",
+          "[slew][cycle]") {
     auto m = make_fast();
     m.update("cycle", 1.0f);
     m.update("trig", 1.0f);
@@ -271,7 +292,8 @@ TEST_CASE("slew_modulator: disabling cycle after trig completes fall, then idles
 
     int extra_eoc = 0;
     for (int i = 0; i < 50; ++i) {
-        if (m.tick(0.0, tick_rate).gate2) ++extra_eoc;
+        if (m.tick(0.0, tick_rate).gate2)
+            ++extra_eoc;
     }
     REQUIRE(extra_eoc == 0);
 }
@@ -289,7 +311,7 @@ TEST_CASE("slew_modulator: unknown key is a no-op", "[slew]") {
 TEST_CASE("slew_modulator: extreme rise/fall times do not crash", "[slew]") {
     slew_modulator m;
     REQUIRE_NOTHROW(m.update("rise", -100.0f));
-    REQUIRE_NOTHROW(m.update("fall",  1e9f));
+    REQUIRE_NOTHROW(m.update("fall", 1e9f));
     REQUIRE(!std::isnan(m.tick(0.0, tick_rate).cv));
 }
 

@@ -20,39 +20,47 @@ TEST_CASE("divine_cmos: single-clock produces 4 division outputs", "[divine-cmos
     // After 1 edge: counter1=1 → bits=0001 → out[0]=1, rest 0.
     m.update("clock1_tick", 1.0f);
     auto out = m.tick(0.0, rate);
-    REQUIRE(out.gate);               // out[0] = ÷2 = 1
-    REQUIRE_FALSE(out.gate2);        // out[1] = ÷4 = 0
+    REQUIRE(out.gate);        // out[0] = ÷2 = 1
+    REQUIRE_FALSE(out.gate2); // out[1] = ÷4 = 0
     REQUIRE((out.state & 0x1u) != 0);
 }
 
 TEST_CASE("divine_cmos: ÷2 toggles every clock edge", "[divine-cmos]") {
     divine_cmos_modulator m;
-    bool prev = false;
-    int toggles = 0;
+    bool                  prev    = false;
+    int                   toggles = 0;
     for (int i = 0; i < 8; ++i) {
         m.update("clock1_tick", 1.0f);
         const auto out = m.tick(0.0, rate);
-        if (out.gate != prev) { ++toggles; prev = out.gate; }
+        if (out.gate != prev) {
+            ++toggles;
+            prev = out.gate;
+        }
     }
-    REQUIRE(toggles == 8);  // toggles every single edge
+    REQUIRE(toggles == 8); // toggles every single edge
 }
 
 TEST_CASE("divine_cmos: ÷4 toggles every two clock edges", "[divine-cmos]") {
     divine_cmos_modulator m;
-    bool prev = false;
-    int toggles = 0;
+    bool                  prev    = false;
+    int                   toggles = 0;
     for (int i = 0; i < 16; ++i) {
         m.update("clock1_tick", 1.0f);
         const auto out = m.tick(0.0, rate);
-        if (out.gate2 != prev) { ++toggles; prev = out.gate2; }
+        if (out.gate2 != prev) {
+            ++toggles;
+            prev = out.gate2;
+        }
     }
-    REQUIRE(toggles == 8);  // toggles every two edges
+    REQUIRE(toggles == 8); // toggles every two edges
 }
 
 TEST_CASE("divine_cmos: MAIN is 0 when all gains are 0", "[divine-cmos]") {
     divine_cmos_modulator m;
-    m.update("gain0", 0.0f); m.update("gain1", 0.0f);
-    m.update("gain2", 0.0f); m.update("gain3", 0.0f);
+    m.update("gain0", 0.0f);
+    m.update("gain1", 0.0f);
+    m.update("gain2", 0.0f);
+    m.update("gain3", 0.0f);
     m.update("clock1_tick", 1.0f);
     const auto out = m.tick(0.0, rate);
     REQUIRE(out.cv == Catch::Approx(0.0f));
@@ -75,10 +83,12 @@ TEST_CASE("divine_cmos: dual-clock XOR differs from single-clock", "[divine-cmos
     for (int i = 0; i < 32; ++i) {
         single.update("clock1_tick", 1.0f);
         dual.update("clock1_tick", 1.0f);
-        if (i % 2 == 0) dual.update("clock2_tick", 1.0f);
+        if (i % 2 == 0)
+            dual.update("clock2_tick", 1.0f);
         const auto os = single.tick(0.0, rate);
         const auto od = dual.tick(0.0, rate);
-        if (os.state != od.state) saw_difference = true;
+        if (os.state != od.state)
+            saw_difference = true;
     }
     REQUIRE(saw_difference);
 }

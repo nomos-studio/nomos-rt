@@ -39,7 +39,7 @@ namespace nomos::rt {
 //   "threshold"   — gate crossing level         [-1, 1]        (default 0.2)
 //   "depth"       — output scale                [0, 1]         (default 1.0)
 class fractal_modulator final : public abstract_modulator {
-public:
+  public:
     explicit fractal_modulator();
 
     modulator_output tick(double beat, float tick_rate_hz) override;
@@ -47,10 +47,9 @@ public:
 
     static constexpr int kMaxOctaves = 8;
 
-private:
-
-    float sample(int i)       const noexcept;
-    float next_rand(int i)    noexcept;
+  private:
+    float sample(int i) const noexcept;
+    float next_rand(int i) noexcept;
 
     float base_rate_{0.1f};
     float lacunarity_{2.0f};

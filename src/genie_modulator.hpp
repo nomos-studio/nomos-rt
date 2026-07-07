@@ -48,17 +48,16 @@ class modulator_engine;
 //   .state      — N-bit bitmap: bit i = neuron i output > 0
 //   .outputs[i] — neuron i normalised [0, 1] for i in 0..N-1
 class genie_modulator final : public abstract_modulator {
-public:
+  public:
     static constexpr int kMaxN = 8;
 
-    explicit genie_modulator(int                     n      = 3,
-                             const modulator_engine* engine = nullptr,
-                             std::string*            in_src = nullptr);
+    explicit genie_modulator(int n = 3, const modulator_engine* engine = nullptr,
+                             std::string* in_src = nullptr);
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     static float neuron(float input, float sense, float response) noexcept;
     float        neuron_norm(float raw, int i) const noexcept;
     float        read_cv_src(const std::string& src, float fallback) const noexcept;

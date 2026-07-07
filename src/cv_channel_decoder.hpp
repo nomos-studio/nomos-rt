@@ -49,36 +49,34 @@ class modulator_engine;
 //   "clocked"    — >0.5 enables clock-latch mode   (default off)
 //   "clock_tick" — >0.5 arms one clock edge (one-shot)
 class cv_channel_decoder final : public abstract_modulator {
-public:
+  public:
     enum class source_field { cv, aux, gate };
 
     // channels  — number of detection bands [1, 8]
     // engine    — if non-null, used to read cross-modulator span source
     // source_id — if non-empty, reads engine->last_output(source_id) for span
     // field     — which output field of the source to use as span
-    explicit cv_channel_decoder(int channels = 1,
-                                const modulator_engine* engine  = nullptr,
-                                std::string             source_id = {},
-                                source_field            field   = source_field::cv);
+    explicit cv_channel_decoder(int channels = 1, const modulator_engine* engine = nullptr,
+                                std::string source_id = {}, source_field field = source_field::cv);
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
     static constexpr int kMaxChannels = 8;
 
-private:
-    float read_span()                              const noexcept;
-    bool  channel_active(int ch, float span)       const noexcept;
+  private:
+    float read_span() const noexcept;
+    bool  channel_active(int ch, float span) const noexcept;
 
     int                     channels_;
     const modulator_engine* engine_;
     std::string             source_id_;
     source_field            source_field_;
 
-    float    span_{0.0f};
-    float    space_{1.0f};
-    float    prev_span_{0.0f};
-    bool     first_tick_{true};
+    float span_{0.0f};
+    float space_{1.0f};
+    float prev_span_{0.0f};
+    bool  first_tick_{true};
 
     bool     clocked_{false};
     bool     clock_pending_{false};

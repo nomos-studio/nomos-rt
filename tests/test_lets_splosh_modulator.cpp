@@ -16,18 +16,20 @@ TEST_CASE("splosh: default construction does not crash", "[splosh]") {
 
 TEST_CASE("splosh: all-zero inputs produce all-zero outputs", "[splosh]") {
     lets_splosh_modulator m;
-    const auto out = m.tick(0.0, rate);
+    const auto            out = m.tick(0.0, rate);
     for (int i = 0; i < 16; ++i)
         REQUIRE(out.outputs[i] == Catch::Approx(0.0f));
-    REQUIRE(out.cv  == Catch::Approx(0.0f));
+    REQUIRE(out.cv == Catch::Approx(0.0f));
     REQUIRE(out.aux == Catch::Approx(0.0f));
     REQUIRE_FALSE(out.gate);
 }
 
 TEST_CASE("splosh: outputs are always non-negative (half-wave rectified)", "[splosh]") {
     lets_splosh_modulator m;
-    m.update("c", 0.8f); m.update("t", 0.3f);
-    m.update("n", 0.6f); m.update("b", 0.1f);
+    m.update("c", 0.8f);
+    m.update("t", 0.3f);
+    m.update("n", 0.6f);
+    m.update("b", 0.1f);
     const auto out = m.tick(0.0, rate);
     for (int i = 0; i < 16; ++i)
         REQUIRE(out.outputs[i] >= 0.0f);
@@ -35,10 +37,12 @@ TEST_CASE("splosh: outputs are always non-negative (half-wave rectified)", "[spl
 
 TEST_CASE("splosh: mask 1111 = max(0, C+T+N+B)", "[splosh]") {
     lets_splosh_modulator m;
-    const float c=0.8f, t=0.3f, n=0.6f, b=0.1f;
-    m.update("c", c); m.update("t", t);
-    m.update("n", n); m.update("b", b);
-    const auto out = m.tick(0.0, rate);
+    const float           c = 0.8f, t = 0.3f, n = 0.6f, b = 0.1f;
+    m.update("c", c);
+    m.update("t", t);
+    m.update("n", n);
+    m.update("b", b);
+    const auto  out      = m.tick(0.0, rate);
     const float expected = std::max(0.0f, c + t + n + b);
     REQUIRE(out.outputs[15] == Catch::Approx(expected).epsilon(1e-5f));
     REQUIRE(out.aux == Catch::Approx(expected).epsilon(1e-5f));
@@ -46,16 +50,20 @@ TEST_CASE("splosh: mask 1111 = max(0, C+T+N+B)", "[splosh]") {
 
 TEST_CASE("splosh: mask 0000 is always zero", "[splosh]") {
     lets_splosh_modulator m;
-    m.update("c", 0.9f); m.update("t", 0.9f);
-    m.update("n", 0.9f); m.update("b", 0.9f);
+    m.update("c", 0.9f);
+    m.update("t", 0.9f);
+    m.update("n", 0.9f);
+    m.update("b", 0.9f);
     const auto out = m.tick(0.0, rate);
     REQUIRE(out.outputs[0] == Catch::Approx(0.0f));
 }
 
 TEST_CASE("splosh: mask m and complement ~m cannot both be non-zero", "[splosh]") {
     lets_splosh_modulator m;
-    m.update("c", 0.7f); m.update("t", 0.2f);
-    m.update("n", 0.5f); m.update("b", 0.4f);
+    m.update("c", 0.7f);
+    m.update("t", 0.2f);
+    m.update("n", 0.5f);
+    m.update("b", 0.4f);
     const auto out = m.tick(0.0, rate);
     for (int mask = 1; mask < 15; ++mask) {
         const int comp = (~mask) & 0xF;
@@ -87,31 +95,35 @@ TEST_CASE("splosh: single dominant input sets expected partitions", "[splosh]") 
 
 TEST_CASE("splosh: cv is outputs[0x7] = max(0, C+T+N-B)", "[splosh]") {
     lets_splosh_modulator m;
-    const float c=0.5f, t=0.4f, n=0.3f, b=0.8f;
-    m.update("c", c); m.update("t", t);
-    m.update("n", n); m.update("b", b);
-    const auto out = m.tick(0.0, rate);
+    const float           c = 0.5f, t = 0.4f, n = 0.3f, b = 0.8f;
+    m.update("c", c);
+    m.update("t", t);
+    m.update("n", n);
+    m.update("b", b);
+    const auto  out      = m.tick(0.0, rate);
     const float expected = std::max(0.0f, c + t + n - b);
     REQUIRE(out.cv == Catch::Approx(expected).epsilon(1e-5f));
 }
 
 TEST_CASE("splosh: state bitmap reflects inputs > 0.5", "[splosh]") {
     lets_splosh_modulator m;
-    m.update("c", 0.8f);  // above
-    m.update("t", 0.3f);  // below
-    m.update("n", 0.9f);  // above
-    m.update("b", 0.1f);  // below
+    m.update("c", 0.8f); // above
+    m.update("t", 0.3f); // below
+    m.update("n", 0.9f); // above
+    m.update("b", 0.1f); // below
     const auto out = m.tick(0.0, rate);
-    REQUIRE((out.state & 0x1u) != 0u);  // C above
-    REQUIRE((out.state & 0x2u) == 0u);  // T below
-    REQUIRE((out.state & 0x4u) != 0u);  // N above
-    REQUIRE((out.state & 0x8u) == 0u);  // B below
+    REQUIRE((out.state & 0x1u) != 0u); // C above
+    REQUIRE((out.state & 0x2u) == 0u); // T below
+    REQUIRE((out.state & 0x4u) != 0u); // N above
+    REQUIRE((out.state & 0x8u) == 0u); // B below
 }
 
 TEST_CASE("splosh: outputs change when inputs change", "[splosh]") {
     lets_splosh_modulator m;
-    m.update("c", 0.5f); m.update("t", 0.5f);
-    m.update("n", 0.5f); m.update("b", 0.5f);
+    m.update("c", 0.5f);
+    m.update("t", 0.5f);
+    m.update("n", 0.5f);
+    m.update("b", 0.5f);
     const auto out1 = m.tick(0.0, rate);
 
     m.update("b", 0.9f);

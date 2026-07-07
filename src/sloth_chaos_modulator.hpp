@@ -48,23 +48,23 @@ class modulator_engine;
 //   .outputs[4..5] = inertia x/y
 //   .outputs[6]    = combined = 0.7 × (torpor_z − (apathy_z + inertia_z)), norm
 class sloth_chaos_modulator final : public abstract_modulator {
-public:
+  public:
     enum class variant { torpor, apathy, inertia, triple };
 
-    explicit sloth_chaos_modulator(variant v = variant::torpor,
-                                   const modulator_engine* engine   = nullptr,
-                                   std::string             cv_src   = {});
+    explicit sloth_chaos_modulator(variant                 v      = variant::torpor,
+                                   const modulator_engine* engine = nullptr,
+                                   std::string             cv_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     struct State {
         float x{0.01f}, w{0.0f}, y{0.0f};
         float z{11.38f};
         bool  z_prev_positive{true};
 
-        void step(float h, float K, float z_bias, float cv_in) noexcept;
+        void  step(float h, float K, float z_bias, float cv_in) noexcept;
         float x_norm() const noexcept;
         float y_norm() const noexcept;
         float w_norm() const noexcept;
@@ -74,18 +74,18 @@ private:
     const modulator_engine* engine_;
     std::string             cv_src_;
 
-    State states_[3];  // [0]=torpor, [1]=apathy, [2]=inertia
+    State states_[3]; // [0]=torpor, [1]=apathy, [2]=inertia
 
     float knob_{0.5f};
     float cv_in_{0.0f};
 
     static constexpr float kTimeDilation[3] = {1.0f, 0.274f, 0.0097f};
-    static constexpr float kAlpha = 0.35f;
-    static constexpr float kBeta  = 0.25f;
-    static constexpr float kGamma = 0.15f;
-    static constexpr float kVRange = 12.0f;     // ±12 V → normalise to [0,1]
-    static constexpr float kZHigh  = 11.38f;
-    static constexpr float kZLow   = -10.64f;
+    static constexpr float kAlpha           = 0.35f;
+    static constexpr float kBeta            = 0.25f;
+    static constexpr float kGamma           = 0.15f;
+    static constexpr float kVRange          = 12.0f; // ±12 V → normalise to [0,1]
+    static constexpr float kZHigh           = 11.38f;
+    static constexpr float kZLow            = -10.64f;
 };
 
 } // namespace nomos::rt

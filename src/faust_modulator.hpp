@@ -30,22 +30,22 @@ namespace nomos::rt {
 //   init(tick_rate_hz) is called on first tick (lazily, to capture the live
 //   rate).  Re-init occurs if tick_rate_hz changes by more than 1 Hz.
 class faust_modulator final : public abstract_modulator {
-public:
+  public:
     explicit faust_modulator(std::unique_ptr<dsp_block> dsp);
 
     modulator_output tick(double beat, float tick_rate_hz) override;
-    void update(std::string_view key, float value) override;
+    void             update(std::string_view key, float value) override;
 
-private:
+  private:
     void ensure_init(float tick_rate_hz);
 
     std::unique_ptr<dsp_block> dsp_;
-    float   current_rate_{0.0f};
-    bool    initialised_{false};
+    float                      current_rate_{0.0f};
+    bool                       initialised_{false};
 
     static constexpr int kBufSize = modulator_output::kMaxOutputs;
-    float   samples_[kBufSize]{};
-    float*  ptrs_[kBufSize]{};
+    float                samples_[kBufSize]{};
+    float*               ptrs_[kBufSize]{};
 };
 
 } // namespace nomos::rt

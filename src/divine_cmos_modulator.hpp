@@ -43,15 +43,14 @@ class modulator_engine;
 //   "clock1_tick"     — >0.5 arms one clock-1 edge (one-shot)
 //   "clock2_tick"     — >0.5 arms one clock-2 edge (one-shot)
 class divine_cmos_modulator final : public abstract_modulator {
-public:
-    explicit divine_cmos_modulator(const modulator_engine* engine     = nullptr,
-                                   std::string             clock1_src = {},
-                                   std::string             clock2_src = {});
+  public:
+    explicit divine_cmos_modulator(const modulator_engine* engine = nullptr,
+                                   std::string clock1_src = {}, std::string clock2_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     bool read_gate(const std::string& src_id, bool& prev_gate) const noexcept;
 
     const modulator_engine* engine_;

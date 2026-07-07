@@ -36,17 +36,16 @@ class modulator_engine;
 //   "addr1" — address bit 1 (>0.5 = high)
 //   "addr2" — address bit 2 (>0.5 = high)
 class statues_modulator final : public abstract_modulator {
-public:
+  public:
     // in_source_id   — if non-empty, reads engine->last_output(id).cv for IN
     // addr_source_id — if non-empty, reads low 3 bits of engine->last_output(id).state
-    explicit statues_modulator(const modulator_engine* engine        = nullptr,
-                               std::string             in_source_id  = {},
-                               std::string             addr_source_id = {});
+    explicit statues_modulator(const modulator_engine* engine = nullptr,
+                               std::string in_source_id = {}, std::string addr_source_id = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     const modulator_engine* engine_;
     std::string             in_source_id_;
     std::string             addr_source_id_;
@@ -58,7 +57,7 @@ private:
     bool  addr_bits_[3]{};
     bool  use_addr_bits_{false};
 
-    int   prev_addr_{-1};
+    int prev_addr_{-1};
 };
 
 } // namespace nomos::rt

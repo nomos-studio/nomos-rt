@@ -53,7 +53,8 @@ TEST_CASE("shift_register_modulator: output in [-1, 1] at construction", "[shift
 // Output range and finiteness
 // ---------------------------------------------------------------------------
 
-TEST_CASE("shift_register_modulator: all modes output [-1, 1] across many ticks", "[shift_register]") {
+TEST_CASE("shift_register_modulator: all modes output [-1, 1] across many ticks",
+          "[shift_register]") {
     for (auto m : {mode::lfsr, mode::rungler, mode::turing, mode::open}) {
         auto mod = make(m);
         for (int i = 0; i < 512; ++i) {
@@ -86,7 +87,8 @@ TEST_CASE("shift_register_modulator: depth zero produces zero", "[shift_register
 // LFSR mode — maximal-length cycle
 // ---------------------------------------------------------------------------
 
-TEST_CASE("shift_register_modulator: LFSR 8-bit produces 255 distinct register states", "[shift_register][lfsr]") {
+TEST_CASE("shift_register_modulator: LFSR 8-bit produces 255 distinct register states",
+          "[shift_register][lfsr]") {
     auto mod = make(mode::lfsr, 8, 3);
 
     std::set<float> seen;
@@ -97,17 +99,21 @@ TEST_CASE("shift_register_modulator: LFSR 8-bit produces 255 distinct register s
 }
 
 TEST_CASE("shift_register_modulator: LFSR output varies", "[shift_register][lfsr]") {
-    auto mod = make(mode::lfsr, 8, 3);
-    const auto vals = collect(mod, 64);
-    const float first = vals.front();
-    bool found_diff = false;
+    auto        mod        = make(mode::lfsr, 8, 3);
+    const auto  vals       = collect(mod, 64);
+    const float first      = vals.front();
+    bool        found_diff = false;
     for (float v : vals) {
-        if (v != first) { found_diff = true; break; }
+        if (v != first) {
+            found_diff = true;
+            break;
+        }
     }
     REQUIRE(found_diff);
 }
 
-TEST_CASE("shift_register_modulator: LFSR 16-bit produces 65535 distinct states", "[shift_register][lfsr]") {
+TEST_CASE("shift_register_modulator: LFSR 16-bit produces 65535 distinct states",
+          "[shift_register][lfsr]") {
     auto mod = make(mode::lfsr, 16, 3);
 
     std::set<float> seen;
@@ -121,24 +127,29 @@ TEST_CASE("shift_register_modulator: LFSR 16-bit produces 65535 distinct states"
 // TURING mode — frozen/random behaviour
 // ---------------------------------------------------------------------------
 
-TEST_CASE("shift_register_modulator: TURING param=0 produces near-frozen output", "[shift_register][turing]") {
+TEST_CASE("shift_register_modulator: TURING param=0 produces near-frozen output",
+          "[shift_register][turing]") {
     auto mod = make(mode::turing, 8, 3);
     mod.update("param", 0.0f);
 
-    for (int i = 0; i < 8; ++i) mod.tick(0.0, tick_rate);
+    for (int i = 0; i < 8; ++i)
+        mod.tick(0.0, tick_rate);
 
     std::vector<float> cycle_a, cycle_b;
-    for (int i = 0; i < 8; ++i) cycle_a.push_back(mod.tick(0.0, tick_rate).cv);
-    for (int i = 0; i < 8; ++i) cycle_b.push_back(mod.tick(0.0, tick_rate).cv);
+    for (int i = 0; i < 8; ++i)
+        cycle_a.push_back(mod.tick(0.0, tick_rate).cv);
+    for (int i = 0; i < 8; ++i)
+        cycle_b.push_back(mod.tick(0.0, tick_rate).cv);
 
     REQUIRE(cycle_a == cycle_b);
 }
 
-TEST_CASE("shift_register_modulator: TURING param=1 produces varying output", "[shift_register][turing]") {
+TEST_CASE("shift_register_modulator: TURING param=1 produces varying output",
+          "[shift_register][turing]") {
     auto mod = make(mode::turing, 8, 3);
     mod.update("param", 1.0f);
 
-    const auto vals = collect(mod, 64);
+    const auto      vals = collect(mod, 64);
     std::set<float> seen(vals.begin(), vals.end());
     REQUIRE(seen.size() > 1u);
 }
@@ -147,19 +158,21 @@ TEST_CASE("shift_register_modulator: TURING param=1 produces varying output", "[
 // RUNGLER mode
 // ---------------------------------------------------------------------------
 
-TEST_CASE("shift_register_modulator: RUNGLER produces varying output", "[shift_register][rungler]") {
+TEST_CASE("shift_register_modulator: RUNGLER produces varying output",
+          "[shift_register][rungler]") {
     auto mod = make(mode::rungler, 8, 3);
-    mod.update("data",  0.3f);
+    mod.update("data", 0.3f);
     mod.update("param", 0.5f);
 
-    const auto vals = collect(mod, 64);
+    const auto      vals = collect(mod, 64);
     std::set<float> seen(vals.begin(), vals.end());
     REQUIRE(seen.size() > 1u);
 }
 
-TEST_CASE("shift_register_modulator: RUNGLER data=0 param=1 shifts 1s and locks", "[shift_register][rungler]") {
+TEST_CASE("shift_register_modulator: RUNGLER data=0 param=1 shifts 1s and locks",
+          "[shift_register][rungler]") {
     auto mod = make(mode::rungler, 8, 3);
-    mod.update("data",  0.0f);
+    mod.update("data", 0.0f);
     mod.update("param", 1.0f);
 
     for (int i = 0; i < 64; ++i) {
@@ -180,7 +193,8 @@ TEST_CASE("shift_register_modulator: OPEN mode data=0 fills register with 0s →
     mod.update("clock_rate", tick_rate);
     mod.update("data", 0.0f);
 
-    for (int i = 0; i < 8; ++i) mod.tick(0.0, tick_rate);
+    for (int i = 0; i < 8; ++i)
+        mod.tick(0.0, tick_rate);
     REQUIRE(mod.tick(0.0, tick_rate).cv == Catch::Approx(-1.0f));
 }
 
@@ -190,7 +204,8 @@ TEST_CASE("shift_register_modulator: OPEN mode data=1 fills register with 1s →
     mod.update("clock_rate", tick_rate);
     mod.update("data", 1.0f);
 
-    for (int i = 0; i < 8; ++i) mod.tick(0.0, tick_rate);
+    for (int i = 0; i < 8; ++i)
+        mod.tick(0.0, tick_rate);
     REQUIRE(mod.tick(0.0, tick_rate).cv == Catch::Approx(1.0f));
 }
 
@@ -219,9 +234,10 @@ TEST_CASE("shift_register_modulator: state reflects register evolution", "[shift
 
 TEST_CASE("shift_register_modulator: state masked to length", "[shift_register]") {
     for (int len : {4, 8, 12, 16, 32}) {
-        auto mod = make(mode::lfsr, len, 3);
+        auto                        mod = make(mode::lfsr, len, 3);
         nomos::rt::modulator_output last;
-        for (int i = 0; i < 32; ++i) last = mod.tick(0.0, tick_rate);
+        for (int i = 0; i < 32; ++i)
+            last = mod.tick(0.0, tick_rate);
         const uint32_t mask = (len < 32) ? ((1u << len) - 1u) : 0xFFFF'FFFFu;
         REQUIRE((last.state & ~mask) == 0u);
     }

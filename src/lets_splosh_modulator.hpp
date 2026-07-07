@@ -41,21 +41,19 @@ class modulator_engine;
 //   .state      — mask of inputs currently above 0.5
 //   .outputs[m] — partition output for 4-bit mask m  (m = 0..15)
 class lets_splosh_modulator final : public abstract_modulator {
-public:
-    explicit lets_splosh_modulator(const modulator_engine* engine  = nullptr,
-                                   std::string             c_src   = {},
-                                   std::string             t_src   = {},
-                                   std::string             n_src   = {},
-                                   std::string             b_src   = {});
+  public:
+    explicit lets_splosh_modulator(const modulator_engine* engine = nullptr, std::string c_src = {},
+                                   std::string t_src = {}, std::string n_src = {},
+                                   std::string b_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     float read_cv_src(const std::string& src, float fallback) const noexcept;
 
     const modulator_engine* engine_;
-    std::string             src_[4];  // c, t, n, b sources
+    std::string             src_[4]; // c, t, n, b sources
 
     float inputs_[4]{};
 };

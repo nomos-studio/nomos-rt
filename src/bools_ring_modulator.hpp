@@ -47,23 +47,20 @@ class modulator_engine;
 //   "sampled"     — >0.5 enables sample-clock latch
 //   "sample_tick" — >0.5 arms one sample edge (one-shot)
 class bools_ring_modulator final : public abstract_modulator {
-public:
+  public:
     enum class mode { xor_mode, or_mode, and_mode, nor_mode, nand_mode, xnor_mode };
 
     // src_ids[0..3]: cross-modulator source IDs for in[0..3] (empty = use update()).
     // sample_src: cross-modulator source for sample clock gate (empty = use sampled/sample_tick).
-    explicit bools_ring_modulator(mode        m          = mode::xor_mode,
-                                  const modulator_engine* engine = nullptr,
-                                  std::string src0       = {},
-                                  std::string src1       = {},
-                                  std::string src2       = {},
-                                  std::string src3       = {},
+    explicit bools_ring_modulator(mode m = mode::xor_mode, const modulator_engine* engine = nullptr,
+                                  std::string src0 = {}, std::string src1 = {},
+                                  std::string src2 = {}, std::string src3 = {},
                                   std::string sample_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     bool apply_logic(bool a, bool b) const noexcept;
     bool read_gate(const std::string& src_id, float fallback) const noexcept;
 
@@ -78,11 +75,11 @@ private:
     bool  sample_pending_{false};
     bool  sample_prev_{false};
 
-    float slew_state_{0.0f};
+    float   slew_state_{0.0f};
     uint8_t latched_out_{0};
 
     static constexpr float kStepWeights[4] = {0.55f, 1.09f, 2.19f, 4.37f};
-    static constexpr float kStepMax        = 0.55f + 1.09f + 2.19f + 4.37f;  // 8.20
+    static constexpr float kStepMax        = 0.55f + 1.09f + 2.19f + 4.37f; // 8.20
 };
 
 } // namespace nomos::rt

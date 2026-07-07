@@ -31,7 +31,7 @@ using modulator_factory = std::function<std::unique_ptr<abstract_modulator>()>;
 // Built-in types (slope, segment, slew, shift-register, fractal, stochastic) are
 // handled by rt_control_thread directly and do not need to be registered here.
 class modulator_registry {
-public:
+  public:
     // Register a factory under name.  Replaces any existing factory for that name.
     void register_type(std::string name, modulator_factory fn) {
         factories_[std::move(name)] = std::move(fn);
@@ -43,11 +43,9 @@ public:
         return (it != factories_.end()) ? it->second() : nullptr;
     }
 
-    bool contains(std::string_view name) const {
-        return factories_.count(std::string{name}) > 0;
-    }
+    bool contains(std::string_view name) const { return factories_.count(std::string{name}) > 0; }
 
-private:
+  private:
     std::unordered_map<std::string, modulator_factory> factories_;
 };
 

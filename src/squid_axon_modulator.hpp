@@ -45,17 +45,15 @@ class modulator_engine;
 //   .state      — stage counter (0–3)
 //   .outputs[0..3] = OUT1..OUT4 normalised
 class squid_axon_modulator final : public abstract_modulator {
-public:
-    explicit squid_axon_modulator(const modulator_engine* engine   = nullptr,
-                                  std::string             clock_src = {},
-                                  std::string             in1_src   = {},
-                                  std::string             in2_src   = {},
-                                  std::string             in3_src   = {});
+  public:
+    explicit squid_axon_modulator(const modulator_engine* engine = nullptr,
+                                  std::string clock_src = {}, std::string in1_src = {},
+                                  std::string in2_src = {}, std::string in3_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     float read_cv_src(const std::string& src, float fallback) const noexcept;
     float nl_feedback(float out4) const noexcept;
 
@@ -70,8 +68,8 @@ private:
     float in1_{0.0f}, in2_{0.0f}, in3_{0.0f};
     bool  in3_patched_{false};
 
-    bool  clock_prev_{false};
-    bool  clock_pending_{false};
+    bool clock_prev_{false};
+    bool clock_pending_{false};
 };
 
 } // namespace nomos::rt

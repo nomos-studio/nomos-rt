@@ -42,13 +42,13 @@ namespace nomos::rt {
 //   "steps"    — CV quantisation steps   [0, 16]       (default 0 = continuous)
 //   "depth"    — output scale            [0, 1]        (default 1.0)
 class stochastic_modulator final : public abstract_modulator {
-public:
+  public:
     explicit stochastic_modulator();
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     static constexpr int kMaxLength = 16;
 
     float next_rand() noexcept;
@@ -64,18 +64,18 @@ private:
     int   steps_{0};
 
     // Clock state
-    float    clock_phase_{0.0f};
-    float    next_threshold_{1.0f};  // current period length (jitter-modified)
+    float clock_phase_{0.0f};
+    float next_threshold_{1.0f}; // current period length (jitter-modified)
 
     // CV output
-    float    cv_out_{0.0f};
-    bool     gate_out_{false};
+    float cv_out_{0.0f};
+    bool  gate_out_{false};
 
     // Déjà vu loop buffers
-    float    cv_buf_[kMaxLength]{};
-    bool     gate_buf_[kMaxLength]{};
-    int      write_pos_{0};
-    int      read_pos_{0};
+    float cv_buf_[kMaxLength]{};
+    bool  gate_buf_[kMaxLength]{};
+    int   write_pos_{0};
+    int   read_pos_{0};
 
     uint32_t rand_state_{0xACE1u};
 };

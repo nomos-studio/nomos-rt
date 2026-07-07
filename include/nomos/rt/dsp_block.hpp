@@ -16,7 +16,7 @@ namespace nomos::rt {
 // Outputs are written to the caller-supplied pointer array; each pointer
 // addresses a single float (the sample for that output channel).
 class dsp_block {
-public:
+  public:
     virtual ~dsp_block() = default;
 
     // Initialise or re-initialise at the given sample rate.  Called once

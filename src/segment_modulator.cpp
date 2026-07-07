@@ -35,20 +35,20 @@ modulator_output segment_modulator::tick(double /*beat*/, float tick_rate_hz) {
     }
 
     const auto& seg = defs_[static_cast<std::size_t>(cur_seg_)];
-    float output;
+    float       output;
     switch (seg.kind) {
-        case type::ramp:
-            output = seg_start_val_ + local_p * (seg.primary - seg_start_val_);
-            break;
-        case type::step:
-            output = seg.primary;
-            break;
-        case type::hold:
-            output = seg_start_val_;
-            break;
-        case type::alt:
-            output = (cycle_count_ % 2 == 0) ? seg.primary : seg.secondary;
-            break;
+    case type::ramp:
+        output = seg_start_val_ + local_p * (seg.primary - seg_start_val_);
+        break;
+    case type::step:
+        output = seg.primary;
+        break;
+    case type::hold:
+        output = seg_start_val_;
+        break;
+    case type::alt:
+        output = (cycle_count_ % 2 == 0) ? seg.primary : seg.secondary;
+        break;
     }
 
     cur_output_ = std::clamp(output, 0.0f, 1.0f);
@@ -75,7 +75,8 @@ void segment_modulator::update(std::string_view key, float value) {
 
     int idx = 0;
     for (char c : rest.substr(0, sep)) {
-        if (c < '0' || c > '9') return;
+        if (c < '0' || c > '9')
+            return;
         idx = idx * 10 + (c - '0');
     }
     if (idx < 0 || idx >= n_defs_)
@@ -83,9 +84,11 @@ void segment_modulator::update(std::string_view key, float value) {
 
     const auto  field = rest.substr(sep + 1);
     const float v     = std::clamp(value, 0.0f, 1.0f);
-    auto& def = defs_[static_cast<std::size_t>(idx)];
-    if      (field == "primary")   def.primary   = v;
-    else if (field == "secondary") def.secondary = v;
+    auto&       def   = defs_[static_cast<std::size_t>(idx)];
+    if (field == "primary")
+        def.primary = v;
+    else if (field == "secondary")
+        def.secondary = v;
 }
 
 } // namespace nomos::rt

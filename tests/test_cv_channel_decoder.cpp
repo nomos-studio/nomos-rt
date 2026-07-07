@@ -45,7 +45,7 @@ TEST_CASE("cv_channel_decoder N=1: gate fires when span is within detection wind
 TEST_CASE("cv_channel_decoder N=1 space=0.25: gate fires near centre, quiet at edges",
           "[cv-channel-decoder]") {
     cv_channel_decoder m{1};
-    m.update("space", 0.25f);  // active window = [-0.25, 0.25]
+    m.update("space", 0.25f); // active window = [-0.25, 0.25]
 
     m.update("span", 0.0f);
     REQUIRE(m.tick(0.0, tick_rate).gate);
@@ -76,21 +76,21 @@ TEST_CASE("cv_channel_decoder N=4: correct channel fires per band", "[cv-channel
         REQUIRE(out.gate == (expected_bit != 0));
     };
 
-    check(-0.75f, 0x1u);  // ch0
-    check(-0.25f, 0x2u);  // ch1
-    check( 0.25f, 0x4u);  // ch2
-    check( 0.75f, 0x8u);  // ch3
+    check(-0.75f, 0x1u); // ch0
+    check(-0.25f, 0x2u); // ch1
+    check(0.25f, 0x4u);  // ch2
+    check(0.75f, 0x8u);  // ch3
 }
 
 TEST_CASE("cv_channel_decoder N=4 space>1: adjacent channels overlap", "[cv-channel-decoder]") {
     cv_channel_decoder m{4};
-    m.update("space", 1.5f);  // bands overlap by 0.5× their half-width
+    m.update("space", 1.5f); // bands overlap by 0.5× their half-width
 
     // At a band boundary both neighbouring channels should be active.
-    m.update("span", -0.5f);  // boundary between ch0 and ch1
+    m.update("span", -0.5f); // boundary between ch0 and ch1
     const auto out = m.tick(0.0, tick_rate);
-    REQUIRE((out.state & 0x1u) != 0);  // ch0 active
-    REQUIRE((out.state & 0x2u) != 0);  // ch1 active
+    REQUIRE((out.state & 0x1u) != 0); // ch0 active
+    REQUIRE((out.state & 0x2u) != 0); // ch1 active
 }
 
 TEST_CASE("cv_channel_decoder N=8: all channels addressable", "[cv-channel-decoder]") {
@@ -126,7 +126,7 @@ TEST_CASE("cv_channel_decoder: velocity proportional to rate of span change",
           "[cv-channel-decoder]") {
     cv_channel_decoder m{1};
     m.update("span", -1.0f);
-    m.tick(0.0, tick_rate);  // first tick — seeds prev_span
+    m.tick(0.0, tick_rate); // first tick — seeds prev_span
 
     // Full-range sweep [-1,1] in one second: delta=2, rate=tick_rate
     // velocity = min(1, |2| * tick_rate * 0.5 / tick_rate) = min(1, 1) = 1.0
@@ -140,7 +140,7 @@ TEST_CASE("cv_channel_decoder: velocity proportional to rate of span change",
 TEST_CASE("cv_channel_decoder: velocity is 0 for stationary span", "[cv-channel-decoder]") {
     cv_channel_decoder m{1};
     m.update("span", 0.5f);
-    m.tick(0.0, tick_rate);  // seed
+    m.tick(0.0, tick_rate); // seed
 
     for (int i = 0; i < 20; ++i) {
         const auto out = m.tick(0.0, tick_rate);
@@ -154,7 +154,7 @@ TEST_CASE("cv_channel_decoder: velocity is 0 for stationary span", "[cv-channel-
 
 TEST_CASE("cv_channel_decoder: clocked=off passes state immediately", "[cv-channel-decoder]") {
     cv_channel_decoder m{4};
-    m.update("span", -0.75f);  // ch0 active
+    m.update("span", -0.75f); // ch0 active
     const auto out = m.tick(0.0, tick_rate);
     REQUIRE(out.state == 0x1u);
 }
@@ -164,19 +164,19 @@ TEST_CASE("cv_channel_decoder: clocked=on holds state until clock_tick", "[cv-ch
     m.update("clocked", 1.0f);
 
     // Before any clock_tick, latched_state is 0.
-    m.update("span", -0.75f);  // ch0 would be active
+    m.update("span", -0.75f); // ch0 would be active
     auto out = m.tick(0.0, tick_rate);
-    REQUIRE(out.state == 0x0u);  // not yet latched
+    REQUIRE(out.state == 0x0u); // not yet latched
 
     // Fire a clock edge — now the current input latches.
     m.update("clock_tick", 1.0f);
     out = m.tick(0.0, tick_rate);
-    REQUIRE(out.state == 0x1u);  // ch0 latched
+    REQUIRE(out.state == 0x1u); // ch0 latched
 
     // Move span to ch1 — output should still show ch0 (no new clock).
     m.update("span", -0.25f);
     out = m.tick(0.0, tick_rate);
-    REQUIRE(out.state == 0x1u);  // still ch0
+    REQUIRE(out.state == 0x1u); // still ch0
 
     // Another clock edge — now ch1 latches.
     m.update("clock_tick", 1.0f);
@@ -190,12 +190,12 @@ TEST_CASE("cv_channel_decoder: clock_tick is consumed (one-shot)", "[cv-channel-
     m.update("span", -0.75f);
     m.update("clock_tick", 1.0f);
 
-    m.tick(0.0, tick_rate);  // consumes the clock edge, latches ch0
+    m.tick(0.0, tick_rate); // consumes the clock edge, latches ch0
 
     // Move span and tick again — no new clock, state should not update.
     m.update("span", -0.25f);
     const auto out = m.tick(0.0, tick_rate);
-    REQUIRE(out.state == 0x1u);  // still ch0, not ch1
+    REQUIRE(out.state == 0x1u); // still ch0, not ch1
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ TEST_CASE("cv_channel_decoder: unknown key is a no-op", "[cv-channel-decoder]") 
 
 TEST_CASE("cv_channel_decoder: extreme span values do not crash", "[cv-channel-decoder]") {
     cv_channel_decoder m{4};
-    REQUIRE_NOTHROW(m.update("span",  1e9f));
+    REQUIRE_NOTHROW(m.update("span", 1e9f));
     REQUIRE_NOTHROW(m.update("span", -1e9f));
     REQUIRE_NOTHROW(m.tick(0.0, tick_rate));
 }
@@ -218,7 +218,7 @@ TEST_CASE("cv_channel_decoder: extreme span values do not crash", "[cv-channel-d
 TEST_CASE("cv_channel_decoder: zero tick_rate_hz does not crash", "[cv-channel-decoder]") {
     cv_channel_decoder m{1};
     m.update("span", 0.3f);
-    m.tick(0.0, tick_rate);  // seed
+    m.tick(0.0, tick_rate); // seed
     REQUIRE_NOTHROW(m.tick(0.0, 0.0f));
     const auto out = m.tick(0.0, 0.0f);
     REQUIRE(!std::isnan(out.cv));

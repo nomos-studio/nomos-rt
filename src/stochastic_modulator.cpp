@@ -27,7 +27,7 @@ modulator_output stochastic_modulator::tick(double /*beat*/, float tick_rate_hz)
 
     clock_phase_ -= next_threshold_;
 
-    const float u = std::max(next_rand(), 1e-6f);
+    const float u   = std::max(next_rand(), 1e-6f);
     next_threshold_ = std::lerp(1.0f, -std::log(u), jitter_);
 
     const float prob_replay = std::min(deja_vu_ * 2.0f, 1.0f);
@@ -37,11 +37,11 @@ modulator_output stochastic_modulator::tick(double /*beat*/, float tick_rate_hz)
     const bool freeze = (deja_vu_ > 0.5f) && (next_rand() < prob_freeze);
 
     if (!replay) {
-        const bool  new_gate = next_rand() < bias_;
-        const float new_cv   = generate_cv();
+        const bool  new_gate  = next_rand() < bias_;
+        const float new_cv    = generate_cv();
         gate_buf_[write_pos_] = new_gate;
         cv_buf_[write_pos_]   = new_cv;
-        write_pos_ = (write_pos_ + 1) % length_;
+        write_pos_            = (write_pos_ + 1) % length_;
     }
 
     gate_out_ = gate_buf_[read_pos_];
@@ -54,14 +54,22 @@ modulator_output stochastic_modulator::tick(double /*beat*/, float tick_rate_hz)
 }
 
 void stochastic_modulator::update(std::string_view key, float value) {
-    if      (key == "rate")    rate_    = std::clamp(value, 0.001f, 100.0f);
-    else if (key == "bias")    bias_    = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "jitter")  jitter_  = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "spread")  spread_  = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "deja_vu") deja_vu_ = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "depth")   depth_   = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "length")  length_  = std::clamp(static_cast<int>(std::round(value)), 1, kMaxLength);
-    else if (key == "steps")   steps_   = std::clamp(static_cast<int>(std::round(value)), 0, 16);
+    if (key == "rate")
+        rate_ = std::clamp(value, 0.001f, 100.0f);
+    else if (key == "bias")
+        bias_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "jitter")
+        jitter_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "spread")
+        spread_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "deja_vu")
+        deja_vu_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "depth")
+        depth_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "length")
+        length_ = std::clamp(static_cast<int>(std::round(value)), 1, kMaxLength);
+    else if (key == "steps")
+        steps_ = std::clamp(static_cast<int>(std::round(value)), 0, 16);
 }
 
 float stochastic_modulator::next_rand() noexcept {
@@ -73,7 +81,7 @@ float stochastic_modulator::generate_cv() noexcept {
     const float raw = next_rand();
     // Centre on bias, half-width = spread.
     float cv = bias_ + (raw - 0.5f) * spread_ * 2.0f;
-    cv = std::clamp(cv, 0.0f, 1.0f);
+    cv       = std::clamp(cv, 0.0f, 1.0f);
     if (steps_ > 0)
         cv = std::round(cv * static_cast<float>(steps_)) / static_cast<float>(steps_);
     // Normalise to [-1, 1].

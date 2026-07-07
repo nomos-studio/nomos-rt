@@ -8,24 +8,23 @@
 
 namespace nomos::rt {
 
-cv_channel_decoder::cv_channel_decoder(int channels,
-                                       const modulator_engine* engine,
-                                       std::string source_id,
-                                       source_field field)
-    : channels_(std::clamp(channels, 1, kMaxChannels))
-    , engine_(engine)
-    , source_id_(std::move(source_id))
-    , source_field_(field)
-{}
+cv_channel_decoder::cv_channel_decoder(int channels, const modulator_engine* engine,
+                                       std::string source_id, source_field field)
+    : channels_(std::clamp(channels, 1, kMaxChannels)), engine_(engine),
+      source_id_(std::move(source_id)), source_field_(field) {
+}
 
 float cv_channel_decoder::read_span() const noexcept {
     if (engine_ && !source_id_.empty()) {
         const auto* out = engine_->last_output(source_id_);
         if (out) {
             switch (source_field_) {
-                case source_field::cv:   return out->cv;
-                case source_field::aux:  return out->aux;
-                case source_field::gate: return out->gate ? 1.0f : -1.0f;
+            case source_field::cv:
+                return out->cv;
+            case source_field::aux:
+                return out->aux;
+            case source_field::gate:
+                return out->gate ? 1.0f : -1.0f;
             }
         }
     }
@@ -76,10 +75,14 @@ modulator_output cv_channel_decoder::tick(double /*beat*/, float tick_rate_hz) {
 }
 
 void cv_channel_decoder::update(std::string_view key, float value) {
-    if      (key == "span")       span_          = std::clamp(value, -1.0f, 1.0f);
-    else if (key == "space")      space_         = std::clamp(value,  0.0f,  2.0f);
-    else if (key == "clocked")    clocked_       = (value > 0.5f);
-    else if (key == "clock_tick" && value > 0.5f) clock_pending_ = true;
+    if (key == "span")
+        span_ = std::clamp(value, -1.0f, 1.0f);
+    else if (key == "space")
+        space_ = std::clamp(value, 0.0f, 2.0f);
+    else if (key == "clocked")
+        clocked_ = (value > 0.5f);
+    else if (key == "clock_tick" && value > 0.5f)
+        clock_pending_ = true;
 }
 
 } // namespace nomos::rt

@@ -39,13 +39,13 @@ namespace nomos::rt {
 //   "depth"      — output scale              [0, 1]         (default 1.0)
 //   "bipolar"    — 1.0 = bipolar, 0.0 = unipolar            (default 1.0)
 class slope_modulator final : public abstract_modulator {
-public:
+  public:
     explicit slope_modulator() = default;
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     float rate_{1.0f};
     float shape_{0.0f};
     float slope_{0.0f};

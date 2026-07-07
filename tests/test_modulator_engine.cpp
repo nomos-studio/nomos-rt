@@ -12,7 +12,7 @@ namespace {
 
 // Minimal stub modulator: returns a fixed value set via update("value", v).
 class stub_modulator final : public nomos::rt::abstract_modulator {
-public:
+  public:
     nomos::rt::modulator_output tick(double /*beat*/, float /*tick_rate_hz*/) override {
         return {.cv = value_};
     }
@@ -65,8 +65,8 @@ TEST_CASE("modulator_engine: start replaces existing id", "[modulator_engine]") 
 
 TEST_CASE("modulator_engine: tick dispatches output with correct id", "[modulator_engine]") {
     nomos::rt::modulator_engine eng;
-    auto* stub = new stub_modulator();
-    stub->value_ = 0.75f;
+    auto*                       stub = new stub_modulator();
+    stub->value_                     = 0.75f;
     eng.start("mod-a", std::unique_ptr<stub_modulator>(stub));
 
     std::map<std::string, float> received;
@@ -80,8 +80,10 @@ TEST_CASE("modulator_engine: tick dispatches output with correct id", "[modulato
 
 TEST_CASE("modulator_engine: tick dispatches all active modulators", "[modulator_engine]") {
     nomos::rt::modulator_engine eng;
-    auto* a = new stub_modulator(); a->value_ = 0.1f;
-    auto* b = new stub_modulator(); b->value_ = 0.9f;
+    auto*                       a = new stub_modulator();
+    a->value_                     = 0.1f;
+    auto* b                       = new stub_modulator();
+    b->value_                     = 0.9f;
     eng.start("a", std::unique_ptr<stub_modulator>(a));
     eng.start("b", std::unique_ptr<stub_modulator>(b));
 
@@ -98,14 +100,14 @@ TEST_CASE("modulator_engine: tick dispatches all active modulators", "[modulator
 TEST_CASE("modulator_engine: tick with no-op callback does not crash", "[modulator_engine]") {
     nomos::rt::modulator_engine eng;
     eng.start("lfo1", std::make_unique<stub_modulator>());
-    REQUIRE_NOTHROW(eng.tick(0.0, 100.0f,
-        [](const std::string&, const nomos::rt::modulator_output&) {}));
+    REQUIRE_NOTHROW(
+        eng.tick(0.0, 100.0f, [](const std::string&, const nomos::rt::modulator_output&) {}));
 }
 
 TEST_CASE("modulator_engine: update_param routes to correct modulator", "[modulator_engine]") {
     nomos::rt::modulator_engine eng;
-    auto* stub = new stub_modulator();
-    stub->value_ = 0.0f;
+    auto*                       stub = new stub_modulator();
+    stub->value_                     = 0.0f;
     eng.start("m1", std::unique_ptr<stub_modulator>(stub));
 
     eng.update_param("m1", "value", 0.42f);
@@ -130,8 +132,7 @@ TEST_CASE("modulator_engine: stopped modulator no longer ticked", "[modulator_en
     eng.stop("lfo1");
 
     int call_count = 0;
-    eng.tick(0.0, 100.0f, [&](const std::string& /*id*/, const nomos::rt::modulator_output&) {
-        ++call_count;
-    });
+    eng.tick(0.0, 100.0f,
+             [&](const std::string& /*id*/, const nomos::rt::modulator_output&) { ++call_count; });
     REQUIRE(call_count == 0);
 }

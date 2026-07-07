@@ -28,7 +28,7 @@ struct modulator_output {
     uint32_t state{0};
 
     static constexpr int kMaxOutputs = 16;
-    float outputs[kMaxOutputs]{};
+    float                outputs[kMaxOutputs]{};
 };
 
 // Base interface for all RT modulators.
@@ -42,7 +42,7 @@ struct modulator_output {
 // relaxed race on the float parameters between the two threads — musically
 // negligible at control rate.
 class abstract_modulator {
-public:
+  public:
     virtual ~abstract_modulator() = default;
 
     // Advance the modulator by one block and return all outputs.

@@ -27,14 +27,14 @@ namespace nomos::rt {
 //   "segment_N_secondary" — secondary value of segment N  [0, 1]
 //   "depth"               — output scale  [0, 1]  (default 1.0)
 class segment_modulator final : public abstract_modulator {
-public:
+  public:
     enum class type { ramp, step, hold, alt };
 
     struct segment_def {
         type  kind{type::ramp};
         float primary{0.5f};
         float secondary{0.5f};
-        bool  loop{false};  // reserved — generator always loops
+        bool  loop{false}; // reserved — generator always loops
     };
 
     explicit segment_modulator(std::span<const segment_def> segments);
@@ -42,13 +42,13 @@ public:
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     static constexpr int kMaxSegments = 36;
 
     std::array<segment_def, kMaxSegments> defs_{};
-    int   n_defs_{1};
-    float depth_{1.0f};
-    float rate_{1.0f};
+    int                                   n_defs_{1};
+    float                                 depth_{1.0f};
+    float                                 rate_{1.0f};
 
     float phase_{0.0f};
     int   cur_seg_{0};

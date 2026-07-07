@@ -15,9 +15,9 @@ namespace {
 segment_modulator make_single_ramp() {
     const std::vector<segment_modulator::segment_def> defs{{
         seg_type::ramp,
-        /*primary=*/   0.5f,
-        /*secondary=*/ 0.5f,
-        /*loop=*/      true,
+        /*primary=*/0.5f,
+        /*secondary=*/0.5f,
+        /*loop=*/true,
     }};
     return segment_modulator(defs);
 }
@@ -119,7 +119,8 @@ TEST_CASE("segment_modulator: step segment output in [0, 1]", "[segment_modulato
     }
 }
 
-TEST_CASE("segment_modulator: alt segment alternates between primary and secondary", "[segment_modulator]") {
+TEST_CASE("segment_modulator: alt segment alternates between primary and secondary",
+          "[segment_modulator]") {
     const std::vector<segment_modulator::segment_def> defs = {
         {seg_type::alt, 0.8f, 0.2f, true},
     };
@@ -129,8 +130,10 @@ TEST_CASE("segment_modulator: alt segment alternates between primary and seconda
     bool saw_08 = false, saw_02 = false;
     for (int i = 0; i < 300; ++i) {
         const float v = mod.tick(0.0, 100.0f).cv;
-        if (v >= 0.79f) saw_08 = true;
-        if (v <= 0.21f) saw_02 = true;
+        if (v >= 0.79f)
+            saw_08 = true;
+        if (v <= 0.21f)
+            saw_02 = true;
     }
     REQUIRE(saw_08);
     REQUIRE(saw_02);
@@ -146,8 +149,10 @@ TEST_CASE("segment_modulator: ramp segment varies within cycle", "[segment_modul
     float min_v = 1.0f, max_v = 0.0f;
     for (int i = 0; i < 200; ++i) {
         const float v = mod.tick(0.0, 100.0f).cv;
-        if (v < min_v) min_v = v;
-        if (v > max_v) max_v = v;
+        if (v < min_v)
+            min_v = v;
+        if (v > max_v)
+            max_v = v;
     }
     REQUIRE(max_v > min_v + 0.1f);
 }

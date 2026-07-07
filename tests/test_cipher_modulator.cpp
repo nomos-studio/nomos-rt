@@ -18,8 +18,8 @@ TEST_CASE("cipher: default construction does not crash", "[cipher]") {
 
 TEST_CASE("cipher: initial output is zero", "[cipher]") {
     cipher_modulator m;
-    const auto out = m.tick(0.0, rate);
-    REQUIRE(out.cv  == Catch::Approx(0.0f));
+    const auto       out = m.tick(0.0, rate);
+    REQUIRE(out.cv == Catch::Approx(0.0f));
     REQUIRE(out.aux == Catch::Approx(0.0f));
     REQUIRE(out.state == 0u);
 }
@@ -30,8 +30,10 @@ TEST_CASE("cipher: CV outputs in [0, 1]", "[cipher]") {
     for (int i = 0; i < 100; ++i) {
         m.update("clock_tick", 1.0f);
         const auto out = m.tick(0.0, rate);
-        REQUIRE(out.cv  >= 0.0f); REQUIRE(out.cv  <= 1.0f);
-        REQUIRE(out.aux >= 0.0f); REQUIRE(out.aux <= 1.0f);
+        REQUIRE(out.cv >= 0.0f);
+        REQUIRE(out.cv <= 1.0f);
+        REQUIRE(out.aux >= 0.0f);
+        REQUIRE(out.aux <= 1.0f);
         for (int j = 0; j < 4; ++j) {
             REQUIRE(out.outputs[j] >= 0.0f);
             REQUIRE(out.outputs[j] <= 1.0f);
@@ -63,7 +65,7 @@ TEST_CASE("cipher: register shifts on clock_tick", "[cipher]") {
     cipher_modulator m;
     m.update("data1", 1.0f);
     m.update("clock_tick", 1.0f);
-    m.tick(0.0, rate);  // clock edge fires
+    m.tick(0.0, rate); // clock edge fires
 
     m.update("clock_tick", 1.0f);
     const auto out = m.tick(0.0, rate);
@@ -85,8 +87,8 @@ TEST_CASE("cipher: STROBE freezes output register", "[cipher]") {
     for (int i = 0; i < 8; ++i) {
         m.update("clock_tick", 1.0f);
         const auto out = m.tick(0.0, rate);
-        REQUIRE(out.state == before);  // output frozen
-        REQUIRE(out.gate2);            // strobe active
+        REQUIRE(out.state == before); // output frozen
+        REQUIRE(out.gate2);           // strobe active
     }
 
     // Release strobe — output should follow inner register.
@@ -98,7 +100,7 @@ TEST_CASE("cipher: STROBE freezes output register", "[cipher]") {
 TEST_CASE("cipher: open mode (data2 enabled) disables XOR feedback", "[cipher]") {
     // With data1=0, data2=0 in open mode: all zeros enter, register stays 0.
     cipher_modulator m;
-    m.update("data2_enable", 1.0f);  // enable open mode
+    m.update("data2_enable", 1.0f); // enable open mode
     m.update("data1", 0.0f);
     m.update("data2", 0.0f);
     for (int i = 0; i < 16; ++i) {
@@ -113,7 +115,10 @@ TEST_CASE("cipher: XOR feedback produces variation from constant data1=0", "[cip
     cipher_modulator m;
     // Seed the register with data1=1 for a few clocks.
     m.update("data1", 1.0f);
-    for (int i = 0; i < 4; ++i) { m.update("clock_tick", 1.0f); m.tick(0.0, rate); }
+    for (int i = 0; i < 4; ++i) {
+        m.update("clock_tick", 1.0f);
+        m.tick(0.0, rate);
+    }
 
     // Now data1=0 — register should still evolve via XOR feedback.
     m.update("data1", 0.0f);
@@ -130,15 +135,14 @@ TEST_CASE("cipher: 4 CV outputs are distinct for non-trivial registers", "[ciphe
     // 8 clocks with data1=1,0,1,0,1,0,1,0 in open mode → register = 0xAA (10101010).
     // The four CV slices hit different bit positions, producing unequal values.
     cipher_modulator m;
-    m.update("data2_enable", 1.0f);  // open mode: bit_in = data1
+    m.update("data2_enable", 1.0f); // open mode: bit_in = data1
     for (int i = 0; i < 8; ++i) {
         m.update("data1", (i % 2 == 0) ? 1.0f : 0.0f);
         m.update("clock_tick", 1.0f);
         m.tick(0.0, rate);
     }
-    const auto out = m.tick(0.0, rate);
-    bool all_same = (out.outputs[0] == out.outputs[1] &&
-                     out.outputs[1] == out.outputs[2] &&
+    const auto out      = m.tick(0.0, rate);
+    bool       all_same = (out.outputs[0] == out.outputs[1] && out.outputs[1] == out.outputs[2] &&
                      out.outputs[2] == out.outputs[3]);
     REQUIRE_FALSE(all_same);
 }

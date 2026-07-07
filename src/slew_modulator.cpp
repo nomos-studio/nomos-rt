@@ -20,8 +20,8 @@ modulator_output slew_modulator::tick(double /*beat*/, float tick_rate_hz) {
 
     if (trig_pending_) {
         trig_pending_ = false;
-        current_ = -1.0f;
-        stage_    = stage::rising;
+        current_      = -1.0f;
+        stage_        = stage::rising;
     }
 
     if (cycle_ && stage_ == stage::idle)
@@ -52,12 +52,18 @@ modulator_output slew_modulator::tick(double /*beat*/, float tick_rate_hz) {
 }
 
 void slew_modulator::update(std::string_view key, float value) {
-    if      (key == "rise")              rise_  = std::clamp(value, 0.001f, 10.0f);
-    else if (key == "fall")              fall_  = std::clamp(value, 0.001f, 10.0f);
-    else if (key == "input")             input_ = std::clamp(value, -1.0f,  1.0f);
-    else if (key == "depth")             depth_ = std::clamp(value, 0.0f,   1.0f);
-    else if (key == "cycle")             cycle_ = value > 0.5f;
-    else if (key == "trig" && value > 0.5f) trig_pending_ = true;
+    if (key == "rise")
+        rise_ = std::clamp(value, 0.001f, 10.0f);
+    else if (key == "fall")
+        fall_ = std::clamp(value, 0.001f, 10.0f);
+    else if (key == "input")
+        input_ = std::clamp(value, -1.0f, 1.0f);
+    else if (key == "depth")
+        depth_ = std::clamp(value, 0.0f, 1.0f);
+    else if (key == "cycle")
+        cycle_ = value > 0.5f;
+    else if (key == "trig" && value > 0.5f)
+        trig_pending_ = true;
 }
 
 } // namespace nomos::rt

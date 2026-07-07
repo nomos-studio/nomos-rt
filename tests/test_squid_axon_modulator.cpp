@@ -16,8 +16,8 @@ TEST_CASE("squid: default construction does not crash", "[squid]") {
 
 TEST_CASE("squid: initial output is zero", "[squid]") {
     squid_axon_modulator m;
-    const auto out = m.tick(0.0, rate);
-    REQUIRE(out.cv  == Catch::Approx(0.0f));
+    const auto           out = m.tick(0.0, rate);
+    REQUIRE(out.cv == Catch::Approx(0.0f));
     REQUIRE(out.aux == Catch::Approx(0.0f));
     for (int i = 0; i < 4; ++i)
         REQUIRE(out.outputs[i] == Catch::Approx(0.0f));
@@ -50,7 +50,7 @@ TEST_CASE("squid: value propagates through pipeline with stagger", "[squid]") {
     // Fire a single pulse through the pipeline and confirm it reaches OUT4
     // exactly 3 clocks after OUT1.
     squid_axon_modulator m;
-    m.update("in3_patched", 1.0f);  // disable IN3 normalling; use 0
+    m.update("in3_patched", 1.0f); // disable IN3 normalling; use 0
     m.update("in1", 0.7f);
     m.update("clock_tick", 1.0f);
     const float out1_tick1 = m.tick(0.0, rate).outputs[0];
@@ -83,14 +83,14 @@ TEST_CASE("squid: cv mirrors outputs[0], aux mirrors outputs[3]", "[squid]") {
     m.update("in1", 0.5f);
     m.update("clock_tick", 1.0f);
     const auto out = m.tick(0.0, rate);
-    REQUIRE(out.cv  == Catch::Approx(out.outputs[0]));
+    REQUIRE(out.cv == Catch::Approx(out.outputs[0]));
     REQUIRE(out.aux == Catch::Approx(out.outputs[3]));
 }
 
 TEST_CASE("squid: nonlinear feedback reduces large OUT4 values", "[squid]") {
     // With high nl_fb the pipeline self-stabilises — large values get negated.
     squid_axon_modulator m;
-    m.update("nl_fb",  4.0f);  // maximum NL feedback
+    m.update("nl_fb", 4.0f); // maximum NL feedback
     m.update("lin_fb", 0.5f);
     m.update("in1", 1.0f);
     m.update("in2", 1.0f);
@@ -98,8 +98,10 @@ TEST_CASE("squid: nonlinear feedback reduces large OUT4 values", "[squid]") {
     for (int i = 0; i < 50; ++i) {
         m.update("clock_tick", 1.0f);
         const auto out = m.tick(0.0, rate);
-        REQUIRE(out.cv  >= 0.0f); REQUIRE(out.cv  <= 1.0f);
-        REQUIRE(out.aux >= 0.0f); REQUIRE(out.aux <= 1.0f);
+        REQUIRE(out.cv >= 0.0f);
+        REQUIRE(out.cv <= 1.0f);
+        REQUIRE(out.aux >= 0.0f);
+        REQUIRE(out.aux <= 1.0f);
     }
 }
 

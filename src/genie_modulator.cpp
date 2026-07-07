@@ -8,16 +8,14 @@
 
 namespace nomos::rt {
 
-genie_modulator::genie_modulator(int n, const modulator_engine* engine,
-                                  std::string in_src[kMaxN])
-    : engine_(engine)
-    , n_(std::clamp(n, 2, kMaxN))
-{
+genie_modulator::genie_modulator(int n, const modulator_engine* engine, std::string in_src[kMaxN])
+    : engine_(engine), n_(std::clamp(n, 2, kMaxN)) {
     for (int i = 0; i < kMaxN; ++i) {
         sense_[i]    = 2.5f;
         response_[i] = 3.0f;
         gain_[i]     = 0.6f;
-        if (in_src) in_src_[i] = std::move(in_src[i]);
+        if (in_src)
+            in_src_[i] = std::move(in_src[i]);
     }
 }
 
@@ -33,15 +31,16 @@ float genie_modulator::neuron_norm(float raw, int i) const noexcept {
     // Full range: [-response, max(response, 10-response)].
     const float lo = -response_[i];
     const float hi = std::max(response_[i], 10.0f - response_[i]);
-    if (hi == lo) return 0.5f;
+    if (hi == lo)
+        return 0.5f;
     return std::clamp((raw - lo) / (hi - lo), 0.0f, 1.0f);
 }
 
-float genie_modulator::read_cv_src(const std::string& src,
-                                    float fallback) const noexcept {
+float genie_modulator::read_cv_src(const std::string& src, float fallback) const noexcept {
     if (engine_ && !src.empty()) {
         const auto* o = engine_->last_output(src);
-        if (o) return o->cv;
+        if (o)
+            return o->cv;
     }
     return fallback;
 }
@@ -50,9 +49,8 @@ modulator_output genie_modulator::tick(double /*beat*/, float /*tick_rate_hz*/) 
     // Resolve external inputs (or use previous state_ as ring signal).
     float inputs[kMaxN];
     for (int i = 0; i < n_; ++i)
-        inputs[i] = in_src_[i].empty()
-                    ? gain_[i] * state_[(i + n_ - 1) % n_]   // ring: prev neuron
-                    : read_cv_src(in_src_[i], ext_in_[i]);
+        inputs[i] = in_src_[i].empty() ? gain_[i] * state_[(i + n_ - 1) % n_] // ring: prev neuron
+                                       : read_cv_src(in_src_[i], ext_in_[i]);
 
     // Compute all neurons simultaneously from previous state (no intra-tick
     // feedback — matches one-clock-latency ring behaviour of the hardware).
@@ -82,7 +80,8 @@ modulator_output genie_modulator::tick(double /*beat*/, float /*tick_rate_hz*/) 
     uint32_t bitmap = 0;
     for (int i = 0; i < n_; ++i) {
         out.outputs[i] = neuron_norm(state_[i], i);
-        if (state_[i] > 0.0f) bitmap |= (1u << i);
+        if (state_[i] > 0.0f)
+            bitmap |= (1u << i);
     }
     out.state = bitmap;
 
@@ -93,16 +92,20 @@ void genie_modulator::update(std::string_view key, float value) {
     // "sense0".."sense7", "response0".."response7", "gain0".."gain7", "in0".."in7"
     if (key.size() >= 5 && key.substr(0, 5) == "sense") {
         const int i = key.back() - '0';
-        if (i >= 0 && i < kMaxN) sense_[i] = std::clamp(value, 0.0f, 5.0f);
+        if (i >= 0 && i < kMaxN)
+            sense_[i] = std::clamp(value, 0.0f, 5.0f);
     } else if (key.size() >= 8 && key.substr(0, 8) == "response") {
         const int i = key.back() - '0';
-        if (i >= 0 && i < kMaxN) response_[i] = std::clamp(value, 1.0f, 10.0f);
+        if (i >= 0 && i < kMaxN)
+            response_[i] = std::clamp(value, 1.0f, 10.0f);
     } else if (key.size() >= 4 && key.substr(0, 4) == "gain") {
         const int i = key.back() - '0';
-        if (i >= 0 && i < kMaxN) gain_[i] = std::clamp(value, 0.0f, 1.0f);
+        if (i >= 0 && i < kMaxN)
+            gain_[i] = std::clamp(value, 0.0f, 1.0f);
     } else if (key.size() >= 2 && key.substr(0, 2) == "in") {
         const int i = key.back() - '0';
-        if (i >= 0 && i < kMaxN) ext_in_[i] = value;
+        if (i >= 0 && i < kMaxN)
+            ext_in_[i] = value;
     }
 }
 

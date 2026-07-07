@@ -16,7 +16,7 @@ TEST_CASE("statues: default construction does not crash", "[statues]") {
 
 TEST_CASE("statues: slots are zero-initialised", "[statues]") {
     statues_modulator m;
-    const auto out = m.tick(0.0, rate);
+    const auto        out = m.tick(0.0, rate);
     for (int i = 0; i < 8; ++i)
         REQUIRE(out.outputs[i] == Catch::Approx(0.0f));
 }
@@ -42,14 +42,14 @@ TEST_CASE("statues: unaddressed slots retain previous values", "[statues]") {
     m.update("in", -0.7f);
     const auto out = m.tick(0.0, rate);
 
-    REQUIRE(out.outputs[2] == Catch::Approx(0.3f));   // still held
-    REQUIRE(out.outputs[5] == Catch::Approx(-0.7f));  // just written
+    REQUIRE(out.outputs[2] == Catch::Approx(0.3f));  // still held
+    REQUIRE(out.outputs[5] == Catch::Approx(-0.7f)); // just written
 }
 
 TEST_CASE("statues: all 8 slots independently addressable", "[statues]") {
     statues_modulator m;
     for (int i = 0; i < 8; ++i) {
-        m.update("in",   static_cast<float>(i) * 0.1f);
+        m.update("in", static_cast<float>(i) * 0.1f);
         m.update("addr", static_cast<float>(i));
         m.tick(0.0, rate);
     }
@@ -68,14 +68,14 @@ TEST_CASE("statues: state field reports current address", "[statues]") {
 TEST_CASE("statues: gate fires when address changes", "[statues]") {
     statues_modulator m;
     m.update("addr", 0.0f);
-    m.tick(0.0, rate);  // establish addr=0
+    m.tick(0.0, rate); // establish addr=0
 
     m.update("addr", 4.0f);
     auto out = m.tick(0.0, rate);
-    REQUIRE(out.gate);  // address changed
+    REQUIRE(out.gate); // address changed
 
     out = m.tick(0.0, rate);
-    REQUIRE_FALSE(out.gate);  // no change
+    REQUIRE_FALSE(out.gate); // no change
 }
 
 TEST_CASE("statues: addr bits select correct slot", "[statues]") {

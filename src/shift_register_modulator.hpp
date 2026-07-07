@@ -39,24 +39,22 @@ namespace nomos::rt {
 //   .gate  — true on the tick a clock edge fired and a 1-bit entered
 //   .state — full register word; expander-style consumers can read all bits
 class shift_register_modulator final : public abstract_modulator {
-public:
+  public:
     enum class mode { lfsr, rungler, turing, open };
 
-    explicit shift_register_modulator(mode m        = mode::turing,
-                                      int  length   = 16,
-                                      int  dac_bits = 3);
+    explicit shift_register_modulator(mode m = mode::turing, int length = 16, int dac_bits = 3);
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
-    bool  lfsr_new_bit()   const noexcept;
-    float dac_output()     const noexcept;
-    float next_random()    noexcept;
+  private:
+    bool  lfsr_new_bit() const noexcept;
+    float dac_output() const noexcept;
+    float next_random() noexcept;
 
-    mode     mode_;
-    int      length_;    // [2, 32]
-    int      dac_bits_;  // [1, min(length_, 8)]
+    mode mode_;
+    int  length_;   // [2, 32]
+    int  dac_bits_; // [1, min(length_, 8)]
 
     uint32_t reg_;
     bool     gate_out_{false};

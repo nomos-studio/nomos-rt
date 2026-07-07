@@ -41,13 +41,13 @@ namespace nomos::rt {
 //   "cycle" — > 0.5 enables free-running     (default off)
 //   "trig"  — > 0.5 arms a one-shot cycle
 class slew_modulator final : public abstract_modulator {
-public:
+  public:
     explicit slew_modulator() = default;
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     enum class stage { idle, rising, falling };
 
     float coeff(float time_s, float tick_rate_hz) const noexcept;

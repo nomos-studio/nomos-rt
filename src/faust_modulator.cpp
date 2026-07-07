@@ -6,9 +6,7 @@
 
 namespace nomos::rt {
 
-faust_modulator::faust_modulator(std::unique_ptr<dsp_block> dsp)
-    : dsp_(std::move(dsp))
-{
+faust_modulator::faust_modulator(std::unique_ptr<dsp_block> dsp) : dsp_(std::move(dsp)) {
     for (int i = 0; i < kBufSize; ++i)
         ptrs_[i] = &samples_[i];
 }

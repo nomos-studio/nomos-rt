@@ -8,8 +8,12 @@
 #include <unordered_map>
 #include <vector>
 
-namespace edn { class value; }
-namespace nomos::rt { class modulator_engine; }
+namespace edn {
+class value;
+}
+namespace nomos::rt {
+class modulator_engine;
+}
 
 namespace nomos::rt {
 
@@ -29,13 +33,23 @@ namespace nomos::rt {
 struct cg_node {
     enum class kind {
         const_val,
-        param_ref,   // named param from control_graph::params
-        mod_ref,     // output of another named modulator in the engine
-        beat_in,     // current beat position as a float
-        beat_phase,  // fmod(beat / period_beats, 1.0) — musically-locked phase
+        param_ref,  // named param from control_graph::params
+        mod_ref,    // output of another named modulator in the engine
+        beat_in,    // current beat position as a float
+        beat_phase, // fmod(beat / period_beats, 1.0) — musically-locked phase
         phasor,
-        sin, cos, tri, saw, square,
-        scale, clamp, add, mul, neg, abs_val, mix,
+        sin,
+        cos,
+        tri,
+        saw,
+        square,
+        scale,
+        clamp,
+        add,
+        mul,
+        neg,
+        abs_val,
+        mix,
         slew,
         sample_hold,
         threshold,
@@ -59,8 +73,8 @@ struct cg_node {
 // ---------------------------------------------------------------------------
 struct control_graph {
     std::vector<cg_node>                   nodes;
-    std::unordered_map<std::string, float> params;    // live-updatable named values
-    int out_cv{-1}, out_aux{-1}, out_gate{-1}, out_gate2{-1};
+    std::unordered_map<std::string, float> params; // live-updatable named values
+    int                                    out_cv{-1}, out_aux{-1}, out_gate{-1}, out_gate2{-1};
 };
 
 // Parse an EDN graph expression into a control_graph.  graph_expr may be:
@@ -68,23 +82,21 @@ struct control_graph {
 //   - A map of outputs:       {:cv [...] :gate [...]}          → multi-output
 // params is pre-populated from the :params map in the IPC message.
 // Returns a graph with no nodes on parse error (produces silent output).
-control_graph parse_control_graph(
-    const edn::value&                      graph_expr,
-    std::unordered_map<std::string, float> params = {});
+control_graph parse_control_graph(const edn::value&                      graph_expr,
+                                  std::unordered_map<std::string, float> params = {});
 
 // ---------------------------------------------------------------------------
 // graph_modulator — abstract_modulator backed by an interpreted control graph
 // ---------------------------------------------------------------------------
 class graph_modulator final : public abstract_modulator {
-public:
+  public:
     // engine may be nullptr (cross-modulator mod_ref nodes will return 0).
-    explicit graph_modulator(control_graph graph,
-                             const modulator_engine* engine = nullptr);
+    explicit graph_modulator(control_graph graph, const modulator_engine* engine = nullptr);
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     control_graph           graph_;
     const modulator_engine* engine_;
     std::vector<float>      values_; // per-node scratch buffer, reused each tick

@@ -35,7 +35,7 @@ TEST_CASE("fractal_modulator: default construction does not crash", "[fractal]")
 
 TEST_CASE("fractal_modulator: initial output is finite and in [-1, 1]", "[fractal]") {
     fractal_modulator m;
-    const float v = m.tick(0.0, tick_rate).cv;
+    const float       v = m.tick(0.0, tick_rate).cv;
     REQUIRE(!std::isnan(v));
     REQUIRE(v >= -1.0f);
     REQUIRE(v <= 1.0f);
@@ -90,25 +90,25 @@ TEST_CASE("fractal_modulator: smooth shape output varies", "[fractal]") {
     fractal_modulator m;
     m.update("shape", 0.0f);
     m.update("base_rate", 1.0f);
-    const auto vals = collect(m, 64);
+    const auto  vals  = collect(m, 64);
     const float first = vals.front();
-    REQUIRE(std::any_of(vals.begin(), vals.end(), [first](float v){ return v != first; }));
+    REQUIRE(std::any_of(vals.begin(), vals.end(), [first](float v) { return v != first; }));
 }
 
 TEST_CASE("fractal_modulator: angular shape output varies", "[fractal]") {
     fractal_modulator m;
     m.update("shape", 1.0f);
     m.update("base_rate", 1.0f);
-    const auto vals = collect(m, 64);
+    const auto  vals  = collect(m, 64);
     const float first = vals.front();
-    REQUIRE(std::any_of(vals.begin(), vals.end(), [first](float v){ return v != first; }));
+    REQUIRE(std::any_of(vals.begin(), vals.end(), [first](float v) { return v != first; }));
 }
 
 TEST_CASE("fractal_modulator: stepped shape output varies", "[fractal]") {
     fractal_modulator m;
     m.update("shape", 2.0f);
     m.update("base_rate", 1.0f);
-    const auto vals = collect(m, 200);
+    const auto      vals = collect(m, 200);
     std::set<float> seen(vals.begin(), vals.end());
     REQUIRE(seen.size() > 1u);
 }
@@ -119,15 +119,17 @@ TEST_CASE("fractal_modulator: stepped shape output varies", "[fractal]") {
 
 TEST_CASE("fractal_modulator: octaves=1 produces a single-oscillator output", "[fractal]") {
     fractal_modulator m;
-    m.update("octaves",   1.0f);
+    m.update("octaves", 1.0f);
     m.update("base_rate", 1.0f);
-    m.update("shape",     0.0f);
+    m.update("shape", 0.0f);
 
-    float min_v =  1.0f, max_v = -1.0f;
+    float min_v = 1.0f, max_v = -1.0f;
     for (int i = 0; i < 100; ++i) {
         const float v = m.tick(0.0, tick_rate).cv;
-        if (v < min_v) min_v = v;
-        if (v > max_v) max_v = v;
+        if (v < min_v)
+            min_v = v;
+        if (v > max_v)
+            max_v = v;
     }
     REQUIRE(max_v >= 0.9f);
     REQUIRE(min_v <= -0.9f);
@@ -151,15 +153,15 @@ TEST_CASE("fractal_modulator: more octaves still in range", "[fractal]") {
 
 TEST_CASE("fractal_modulator: persistence near-zero dominated by base octave", "[fractal]") {
     fractal_modulator single;
-    single.update("octaves",     1.0f);
-    single.update("base_rate",   1.0f);
-    single.update("shape",       0.0f);
+    single.update("octaves", 1.0f);
+    single.update("base_rate", 1.0f);
+    single.update("shape", 0.0f);
 
     fractal_modulator multi;
-    multi.update("octaves",     8.0f);
+    multi.update("octaves", 8.0f);
     multi.update("persistence", 0.01f);
-    multi.update("base_rate",   1.0f);
-    multi.update("shape",       0.0f);
+    multi.update("base_rate", 1.0f);
+    multi.update("shape", 0.0f);
 
     float s_max = -1.0f, m_max = -1.0f;
     for (int i = 0; i < 200; ++i) {
@@ -192,7 +194,8 @@ TEST_CASE("fractal_modulator: gate fires at threshold crossing", "[fractal]") {
 
     int gate_count = 0;
     for (int i = 0; i < 500; ++i) {
-        if (m.tick(0.0, tick_rate).gate) ++gate_count;
+        if (m.tick(0.0, tick_rate).gate)
+            ++gate_count;
     }
     REQUIRE(gate_count > 0);
 }
@@ -204,7 +207,8 @@ TEST_CASE("fractal_modulator: gate fires multiple times across cycles", "[fracta
 
     int gate_count = 0;
     for (int i = 0; i < 1000; ++i) {
-        if (m.tick(0.0, tick_rate).gate) ++gate_count;
+        if (m.tick(0.0, tick_rate).gate)
+            ++gate_count;
     }
     REQUIRE(gate_count > 1);
 }
@@ -246,8 +250,8 @@ TEST_CASE("fractal_modulator: unknown key is a no-op", "[fractal]") {
 
 TEST_CASE("fractal_modulator: extreme parameter values do not crash", "[fractal]") {
     fractal_modulator m;
-    REQUIRE_NOTHROW(m.update("base_rate",   1e9f));
-    REQUIRE_NOTHROW(m.update("lacunarity",  -5.0f));
+    REQUIRE_NOTHROW(m.update("base_rate", 1e9f));
+    REQUIRE_NOTHROW(m.update("lacunarity", -5.0f));
     REQUIRE_NOTHROW(m.update("persistence", 999.0f));
     REQUIRE(!std::isnan(m.tick(0.0, tick_rate).cv));
 }

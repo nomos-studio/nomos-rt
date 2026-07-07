@@ -49,18 +49,16 @@ class modulator_engine;
 //   "clock_tick"   — >0.5 arms one clock edge (one-shot)
 //   "data2_enable" — >0.5 enables data2 input (use when no source_id for data2)
 class cipher_modulator final : public abstract_modulator {
-public:
+  public:
     // Source IDs for clock, data1, data2, strobe — empty = use update() parameters.
-    explicit cipher_modulator(const modulator_engine* engine      = nullptr,
-                              std::string             clock_src   = {},
-                              std::string             data1_src   = {},
-                              std::string             data2_src   = {},
-                              std::string             strobe_src  = {});
+    explicit cipher_modulator(const modulator_engine* engine = nullptr, std::string clock_src = {},
+                              std::string data1_src = {}, std::string data2_src = {},
+                              std::string strobe_src = {});
 
     modulator_output tick(double beat, float tick_rate_hz) override;
     void             update(std::string_view key, float value) override;
 
-private:
+  private:
     float project_cv(int cv_idx) const noexcept;
     bool  read_gate_src(const std::string& src_id) const noexcept;
     bool  read_gate_level(const std::string& src_id, float fallback) const noexcept;
@@ -71,15 +69,15 @@ private:
     std::string             data2_src_;
     std::string             strobe_src_;
 
-    uint8_t inner_reg_{0};   // shifts freely every clock
-    uint8_t output_reg_{0};  // frozen when strobe is high
+    uint8_t inner_reg_{0};  // shifts freely every clock
+    uint8_t output_reg_{0}; // frozen when strobe is high
 
     bool clock_prev_{false};
     bool clock_pending_{false};
     bool serial_out_{false};
 
     float data1_{0.0f};
-    float data2_{-1.0f};    // < 0 = data2 absent (XOR feedback mode)
+    float data2_{-1.0f}; // < 0 = data2 absent (XOR feedback mode)
     float strobe_{0.0f};
 
     // Weight ladder for CV projection (ascending within each contributing set).
@@ -88,10 +86,10 @@ private:
 
     // Bit indices contributing to each CV output.
     static constexpr int kCVBits[4][4] = {
-        {0, 3, 4, 7},  // cv1
-        {0, 1, 4, 5},  // cv2
-        {1, 2, 5, 6},  // cv3
-        {2, 3, 6, 7},  // cv4
+        {0, 3, 4, 7}, // cv1
+        {0, 1, 4, 5}, // cv2
+        {1, 2, 5, 6}, // cv3
+        {2, 3, 6, 7}, // cv4
     };
 };
 

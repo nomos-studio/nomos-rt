@@ -49,7 +49,9 @@ void osc_server::start() {
         return;
 
     // 100ms receive timeout so the thread wakes up to check the stop flag.
-    struct timeval tv{0, 100'000};
+    struct timeval tv {
+        0, 100'000
+    };
     ::setsockopt(sock_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     sockaddr_in addr{};

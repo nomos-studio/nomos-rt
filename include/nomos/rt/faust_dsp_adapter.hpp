@@ -28,30 +28,21 @@
 
 namespace nomos::rt {
 
-template <typename FaustDsp>
-class faust_dsp_adapter final : public dsp_block {
-public:
-    faust_dsp_adapter() {
-        impl_.buildUserInterface(&ui_);
-    }
+template <typename FaustDsp> class faust_dsp_adapter final : public dsp_block {
+  public:
+    faust_dsp_adapter() { impl_.buildUserInterface(&ui_); }
 
-    void init(float sample_rate) override {
-        impl_.init(static_cast<int>(sample_rate));
-    }
+    void init(float sample_rate) override { impl_.init(static_cast<int>(sample_rate)); }
 
-    int num_outputs() const override {
-        return const_cast<FaustDsp&>(impl_).getNumOutputs();
-    }
+    int num_outputs() const override { return const_cast<FaustDsp&>(impl_).getNumOutputs(); }
 
     void set_param(std::string_view key, float value) override {
         ui_.setParamValue(std::string(key), value);
     }
 
-    void process(float** outputs) override {
-        impl_.compute(1, nullptr, outputs);
-    }
+    void process(float** outputs) override { impl_.compute(1, nullptr, outputs); }
 
-private:
+  private:
     FaustDsp impl_;
     MapUI    ui_;
 };

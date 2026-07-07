@@ -9,8 +9,8 @@
 
 TEST_CASE("slope_modulator: bipolar output in [-1, 1]", "[slope_modulator]") {
     nomos::rt::slope_modulator mod;
-    constexpr float tick_rate = 100.0f;
-    constexpr int   n_ticks   = 200;
+    constexpr float            tick_rate = 100.0f;
+    constexpr int              n_ticks   = 200;
 
     for (int i = 0; i < n_ticks; ++i) {
         const float v = mod.tick(static_cast<double>(i) * 0.01, tick_rate).cv;
@@ -102,9 +102,9 @@ TEST_CASE("slope_modulator: output varies across ticks (LFO advances)", "[slope_
     nomos::rt::slope_modulator mod;
     mod.update("rate", 1.0f);
 
-    constexpr float tick_rate = 100.0f;
-    float first = mod.tick(0.0, tick_rate).cv;
-    bool  found_different = false;
+    constexpr float tick_rate       = 100.0f;
+    float           first           = mod.tick(0.0, tick_rate).cv;
+    bool            found_different = false;
 
     for (int i = 1; i < 100; ++i) {
         const float v = mod.tick(static_cast<double>(i) / tick_rate, tick_rate).cv;
