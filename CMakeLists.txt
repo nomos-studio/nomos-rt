@@ -99,6 +99,10 @@ set_target_properties(urcu-flavor PROPERTIES
     C_STANDARD   11
     C_STANDARD_REQUIRED ON
 )
+# mremap() is Linux-specific and requires _GNU_SOURCE.
+target_compile_definitions(urcu-flavor PRIVATE
+    $<$<PLATFORM_ID:Linux>:_GNU_SOURCE>
+)
 # urcu-flavor is intentionally NOT passed to nomos_sanitize_target: liburcu-bp
 # contains a struct alignment pattern that UBSan flags as misaligned access
 # (urcu_bp_reader, 16-byte aligned, macOS/ARM64). TSan still intercepts
