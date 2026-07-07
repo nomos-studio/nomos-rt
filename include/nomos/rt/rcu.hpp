@@ -14,9 +14,13 @@
 // duration of the urcu include and restore the caller's warning state after.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wvariadic-macros"
-#pragma GCC diagnostic ignored "-Wdeprecated-volatile"
 #ifdef __clang__
+// clang names for volatile and GNU variadic extension warnings
+#pragma GCC diagnostic ignored "-Wdeprecated-volatile"
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#else
+// GCC 9+ name for deprecated volatile-qualified return type
+#pragma GCC diagnostic ignored "-Wvolatile"
 #endif
 #include <urcu-bp.h>
 #pragma GCC diagnostic pop

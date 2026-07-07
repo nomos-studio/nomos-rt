@@ -70,7 +70,7 @@ modulator_output shift_register_modulator::tick(double /*beat*/, float tick_rate
 
     clock_phase_ -= 1.0f;
 
-    bool new_bit;
+    bool new_bit = false;
     switch (mode_) {
     case mode::lfsr:
         new_bit = lfsr_new_bit();
