@@ -220,6 +220,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     target_compile_options(nomos-rt PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+        # clang-18 false-positively warns about omitted fields in C++20 designated
+        # initialisers when those fields have default member initialisers (fixed in
+        # clang-19+).
+        $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-field-initializers>
     )
 endif()
 

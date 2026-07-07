@@ -51,7 +51,9 @@ jobs:
 
       - name: Install system deps (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libsqlite3-dev
+        run: |
+          sudo apt-get update -qq 2>&1 || true
+          sudo apt-get install -y libasound2-dev libsqlite3-dev
 
       - name: Configure
         env:
@@ -106,7 +108,9 @@ jobs:
 
       - name: Install system deps (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libsqlite3-dev
+        run: |
+          sudo apt-get update -qq 2>&1 || true
+          sudo apt-get install -y libasound2-dev libsqlite3-dev
 
       - name: Configure
         env:
@@ -154,7 +158,9 @@ jobs:
           path: deps/edn-cpp
 
       - name: Install system deps
-        run: sudo apt-get update -qq && sudo apt-get install -y libasound2-dev libsqlite3-dev
+        run: |
+          sudo apt-get update -qq 2>&1 || true
+          sudo apt-get install -y libasound2-dev libsqlite3-dev
 
       - name: Configure
         env:
