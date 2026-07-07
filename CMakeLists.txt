@@ -120,6 +120,11 @@ FetchContent_Declare(rtaudio
     GIT_SHALLOW    TRUE)
 set(RTAUDIO_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(RTAUDIO_TARGETNAME_UNINSTALL rtaudio_uninstall CACHE STRING "" FORCE)
+# Disable audio APIs that require optional system packages not yet in CI.
+# JACK and PulseAudio support is tracked for a future sprint; ALSA is the
+# default Linux backend.
+set(RTAUDIO_API_JACK  OFF CACHE BOOL "" FORCE)
+set(RTAUDIO_API_PULSE OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(rtaudio)
 
 # Ableton Link — beat-sync peer protocol (GPL-2.0-or-later).
