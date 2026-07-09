@@ -61,6 +61,9 @@ constexpr uint8_t msg_route_set = 0x52; // EDN {:midi-routes [...] :mod-routes [
                                         // aion routing matrix
 constexpr uint8_t msg_graph_load_ack =
     0x53; // EDN {:nodes N} — pushed to client after a successful msg_graph_load
+constexpr uint8_t msg_midi_diag =
+    0x54; // EDN {:bytes [b0 b1 …]} — pushed by aion on every MIDI output send,
+          // before bytes reach RtMidi; fires even with no port open (CI path)
 
 // Header layout.  Laid out for direct memcpy from the wire; fields in network
 // byte order (big-endian) — callers must byte-swap payload_len on little-endian

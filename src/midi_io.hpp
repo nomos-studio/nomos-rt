@@ -46,6 +46,13 @@ class midi_io {
     void channel_pressure(uint8_t channel, uint8_t pressure);
     void realtime(uint8_t byte);
 
+    // Optional callback fired on every outgoing MIDI send, before the bytes
+    // reach RtMidi.  Fires even when no port is open — the primary CI / test-
+    // harness verification path.  Called on the event thread; must be thread-safe.
+    // Set before the event thread starts to avoid a data race.
+    using send_cb_t = std::function<void(const std::vector<uint8_t>&)>;
+    void set_send_callback(send_cb_t cb) noexcept;
+
     // Input
     bool open_input_port(unsigned int index, input_event_queue& q);
     bool open_input_port_by_name(const std::string& name, input_event_queue& q);
@@ -68,6 +75,7 @@ class midi_io {
     RtMidiIn           in_;
     input_event_queue* in_queue_{nullptr};
     echo_cb_t          echo_cb_;
+    send_cb_t          send_cb_;
     bool               virtual_port_open_{false};
     std::mutex         send_mutex_;
 };

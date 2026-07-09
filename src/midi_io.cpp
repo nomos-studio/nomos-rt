@@ -72,6 +72,10 @@ bool midi_io::is_open() const noexcept {
 }
 
 void midi_io::send(const std::vector<uint8_t>& bytes) {
+    // Diagnostic tap fires unconditionally — before is_open() guard so it works
+    // even with no port open (CI / test-harness path).
+    if (send_cb_)
+        send_cb_(bytes);
     if (!is_open())
         return;
     std::lock_guard<std::mutex> lock(send_mutex_);
@@ -152,6 +156,10 @@ bool midi_io::open_input_port_by_name(const std::string& name, input_event_queue
 
 void midi_io::set_echo_callback(echo_cb_t cb) noexcept {
     echo_cb_ = std::move(cb);
+}
+
+void midi_io::set_send_callback(send_cb_t cb) noexcept {
+    send_cb_ = std::move(cb);
 }
 
 void midi_io::close_input() {
