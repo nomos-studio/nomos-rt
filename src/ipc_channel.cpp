@@ -22,8 +22,11 @@ namespace {
                 errno = 0; // clean EOF — read() does not set errno on r==0
                 return false;
             }
-            if (r < 0)
+            if (r < 0) {
+                if (errno == EINTR)
+                    continue;
                 return false;
+            }
             p += r;
             rem -= static_cast<std::size_t>(r);
         }
@@ -36,7 +39,12 @@ namespace {
         std::size_t rem = n;
         while (rem > 0) {
             const ssize_t w = ::write(fd, p, rem);
-            if (w <= 0)
+            if (w < 0) {
+                if (errno == EINTR)
+                    continue;
+                return false;
+            }
+            if (w == 0)
                 return false;
             p += w;
             rem -= static_cast<std::size_t>(w);

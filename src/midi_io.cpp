@@ -72,15 +72,15 @@ bool midi_io::is_open() const noexcept {
 }
 
 void midi_io::send(const std::vector<uint8_t>& bytes) {
-    // Diagnostic tap fires unconditionally — before is_open() guard so it works
-    // even with no port open (CI / test-harness path).
-    if (send_cb_)
-        send_cb_(bytes);
     if (!is_open())
         return;
     std::lock_guard<std::mutex> lock(send_mutex_);
     try {
         out_.sendMessage(&bytes);
+        // Diagnostic tap fires only after a successful rtmidi handoff —
+        // proves bytes actually left the process, not just that they were built.
+        if (send_cb_)
+            send_cb_(bytes);
     } catch (const RtMidiError& e) {
         std::fprintf(stderr, "[midi] send error: %s\n", e.what());
     }

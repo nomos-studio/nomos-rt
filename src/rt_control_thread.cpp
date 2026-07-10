@@ -145,7 +145,7 @@ namespace {
         std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
 
         if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0 ||
-            ::listen(fd, 1) < 0) {
+            ::listen(fd, 8) < 0) {
             ::close(fd);
             return -1;
         }
@@ -210,8 +210,11 @@ bool rt_control_thread::running() const noexcept {
 void rt_control_thread::run() {
     while (running_.load(std::memory_order_acquire)) {
         const int conn_fd = ::accept(listen_fd_, nullptr, nullptr);
-        if (conn_fd < 0)
+        if (conn_fd < 0) {
+            if (errno == EINTR)
+                continue; // retry on signal interruption
             break;
+        }
 
         handle_connection(conn_fd);
         ::close(conn_fd);
@@ -226,6 +229,7 @@ void rt_control_thread::push_frame(uint8_t type, std::string_view payload) {
 }
 
 void rt_control_thread::handle_connection(int conn_fd) {
+    std::fprintf(stderr, "[ipc] client connected fd=%d\n", conn_fd);
     {
         std::lock_guard<std::mutex> lock(write_mutex_);
         conn_fd_write_ = conn_fd;
@@ -244,6 +248,7 @@ void rt_control_thread::handle_connection(int conn_fd) {
         std::lock_guard<std::mutex> lock(write_mutex_);
         conn_fd_write_ = -1;
     }
+    std::fprintf(stderr, "[ipc] client disconnected fd=%d\n", conn_fd);
 }
 
 void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
