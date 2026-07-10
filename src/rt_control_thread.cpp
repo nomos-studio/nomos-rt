@@ -192,6 +192,15 @@ void rt_control_thread::stop() {
     if (!running_.exchange(false, std::memory_order_acq_rel))
         return;
 
+    // Unblock any read_message() call on an established connection immediately.
+    // Without this, stop() would stall until the client sends or disconnects.
+    {
+        std::lock_guard<std::mutex> lock(write_mutex_);
+        if (conn_fd_write_ >= 0)
+            ::shutdown(conn_fd_write_, SHUT_RDWR);
+    }
+
+    // Unblock accept() and remove the socket file.
     if (listen_fd_ >= 0) {
         ::shutdown(listen_fd_, SHUT_RDWR);
         ::close(listen_fd_);
