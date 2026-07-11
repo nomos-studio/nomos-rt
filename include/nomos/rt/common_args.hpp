@@ -28,6 +28,7 @@ struct common_args {
     uint32_t     audio_out_ch    = 2;
     uint32_t     audio_in_ch     = 0;
     uint32_t     block_size      = 256; // audio buffer / CLAP block size in frames
+    uint32_t     heartbeat_ms    = 0;   // 0 = disabled; >0 emits [heartbeat] to stderr
     bool         no_audio        = false;
     bool         list_audio_devs = false;
     bool         version         = false;
@@ -73,6 +74,8 @@ inline std::vector<std::string_view> parse_common_args(int argc, char* argv[], c
             args.audio_in_ch = static_cast<uint32_t>(std::atoi(argv[++i]));
         else if (a == "--block-size" && has_next)
             args.block_size = static_cast<uint32_t>(std::atoi(argv[++i]));
+        else if (a == "--heartbeat-ms" && has_next)
+            args.heartbeat_ms = static_cast<uint32_t>(std::atoi(argv[++i]));
         else if (a == "--no-audio")
             args.no_audio = true;
         else if (a == "--list-audio-devices")
@@ -111,6 +114,7 @@ inline void print_common_args_help(const common_args& defaults, std::ostream& ou
         << defaults.audio_in_ch << ")\n"
         << "  --block-size <n>           Audio buffer / CLAP block   (default: "
         << defaults.block_size << ")\n"
+        << "  --heartbeat-ms <n>         Emit [heartbeat] to stderr every n ms (default: 0 = off)\n"
         << "  --no-audio                 Skip audio device\n"
         << "  --list-audio-devices       Print available audio devices and exit\n"
         << "  --version                  Print version and exit\n";
