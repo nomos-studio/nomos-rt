@@ -27,6 +27,7 @@
 
 #include <clap/events.h>
 
+#include "luajit_participant.hpp"
 #include "midi_io.hpp"
 
 #include <array>
@@ -184,8 +185,26 @@ void rt_control_thread::start() {
     if (listen_fd_ < 0)
         return;
 
+        // Auto-load LuaJIT + Fennel when the caller has not provided one.
+        // Requires LuaJIT at link time (NOMOS_RT_HAS_LUAJIT); no-op in stub builds.
+#ifdef NOMOS_RT_HAS_LUAJIT
+    if (!cfg_.lua) {
+        lua_owned_ = luajit_participant::load();
+        cfg_.lua   = lua_owned_.get();
+    }
+#endif
+
+    // Wire the WASM hot-swap Lua C binding now that cfg_.lua is resolved.
+    if (cfg_.lua && cfg_.wasm_swap_fn)
+        cfg_.lua->register_wasm_swap_fn(cfg_.wasm_swap_fn);
+
     running_.store(true, std::memory_order_release);
     thread_ = std::thread(&rt_control_thread::run, this);
+}
+
+void rt_control_thread::set_wasm_swap_fn(
+    std::function<bool(std::string_view, std::string_view)> fn) {
+    cfg_.wasm_swap_fn = std::move(fn);
 }
 
 void rt_control_thread::stop() {
@@ -1147,6 +1166,82 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
         break;
     }
 
+    case ipc::msg_repl_eval: {
+        // {:dest :fennel|:nous|:vcvrack-tty :payload "…" :id "…"}
+        if (msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto                   parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m = parsed->get<edn::map>();
+
+        const auto* id_v   = m.find_kw("id");
+        const auto* dest_v = m.find_kw("dest");
+        const auto* pay_v  = m.find_kw("payload");
+
+        const std::string id = (id_v && id_v->is<std::string>()) ? id_v->get<std::string>() : "";
+        const std::string_view dest =
+            (dest_v && dest_v->is<edn::keyword>()) ? dest_v->get<edn::keyword>().name : "";
+        const std::string src =
+            (pay_v && pay_v->is<std::string>()) ? pay_v->get<std::string>() : "";
+
+        std::string result_edn;
+        if (dest == "fennel") {
+            if (cfg_.lua)
+                result_edn = cfg_.lua->eval(src);
+            else
+                result_edn = "{:error \"LuaJIT not loaded\"}";
+        } else if (dest == "nous") {
+            // Phase 10: forward to nous nREPL over bencode socket.
+            result_edn = "{:error \"nous forwarding not yet wired\"}";
+        } else if (dest == "vcvrack-tty") {
+            // Evaluate via Fennel, then push result to the VCVRack TTY screen
+            // via the tty_sink callback (set by VCVBridgeModule in Phase 2).
+            if (cfg_.lua)
+                result_edn = cfg_.lua->eval(src);
+            else
+                result_edn = "{:error \"LuaJIT not loaded\"}";
+
+            if (cfg_.tty_sink) {
+                // Format as msg_repl_eval_response (0x56) EDN payload.
+                std::string tty_payload;
+                tty_payload.reserve(32 + result_edn.size());
+                if (result_edn.size() >= 7 && result_edn.compare(0, 7, "{:error") == 0) {
+                    // eval() returned {:error "msg"} — extract and reformat.
+                    const auto q1 = result_edn.find('"');
+                    const auto q2 = (q1 != std::string::npos) ? result_edn.find('"', q1 + 1)
+                                                              : std::string::npos;
+                    if (q1 != std::string::npos && q2 != std::string::npos) {
+                        tty_payload = "{:result nil :error \"" +
+                                      result_edn.substr(q1 + 1, q2 - q1 - 1) + "\"}";
+                    } else {
+                        tty_payload = "{:result nil :error \"eval error\"}";
+                    }
+                } else {
+                    tty_payload = "{:result " + result_edn + " :error nil}";
+                }
+                cfg_.tty_sink(tty_payload);
+            }
+        } else {
+            result_edn = "{:error \"unknown :dest\"}";
+        }
+
+        // Build response: {:id "…" :result <edn>}
+        std::string resp;
+        resp.reserve(64 + id.size() + result_edn.size());
+        resp += "{:id \"";
+        resp += id;
+        resp += "\" :result ";
+        resp += result_edn;
+        resp += '}';
+        // conn_fd == -1 when called via dispatch_ctrl_frame (in-process path).
+        if (conn_fd >= 0)
+            ipc::write_message(conn_fd, ipc::msg_repl_eval, std::string_view(resp));
+        break;
+    }
+
     default:
         dispatch_extension(conn_fd, msg, sess);
         break;
@@ -1155,8 +1250,80 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
     (void)conn_fd;
 }
 
-void rt_control_thread::dispatch_extension(int, const ipc::message&, std::optional<session>&) {
-    // no-op — derived classes override to handle additional message types
+void rt_control_thread::set_tty_sink(std::function<void(std::string_view)> fn) {
+    cfg_.tty_sink = std::move(fn);
+}
+
+void rt_control_thread::dispatch_ctrl_frame(const uint8_t* buf, uint32_t total_len) {
+    if (!buf || total_len < ipc::header_size)
+        return;
+
+    // Parse the 8-byte IPC frame header.
+    uint32_t payload_len_be;
+    std::memcpy(&payload_len_be, buf, 4);
+    const uint32_t payload_len = __builtin_bswap32(payload_len_be);
+    const uint8_t  msg_type    = buf[4];
+
+    if (payload_len > total_len - ipc::header_size)
+        return; // truncated
+
+    ipc::message msg;
+    msg.hdr.type               = msg_type;
+    const uint8_t* payload_ptr = buf + ipc::header_size;
+    msg.payload.assign(reinterpret_cast<const std::byte*>(payload_ptr),
+                       reinterpret_cast<const std::byte*>(payload_ptr + payload_len));
+
+    // Dispatch with conn_fd = -1: socket write in dispatch_message is guarded.
+    // The tty_sink receives any :vcvrack-tty response instead.
+    std::optional<session> no_sess;
+    dispatch_message(-1, msg, no_sess);
+}
+
+void rt_control_thread::dispatch_extension(int conn_fd, const ipc::message& msg,
+                                           std::optional<session>&) {
+    // Standalone (non-CLAP) handler for msg_wasm_hot_swap: call wasm_swap_fn if wired.
+    // In kairos, control_thread overrides dispatch_extension and handles this itself
+    // via plugin_graph_manager::hot_swap_node — that override never calls super, so
+    // this branch only fires for standalone nomos-rt deployments.
+    if (msg.type() != ipc::msg_wasm_hot_swap || msg.payload.empty())
+        return;
+
+    const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                msg.payload.size()};
+    auto                   parsed = edn::parse(text);
+    if (!parsed || !parsed->is<edn::map>())
+        return;
+    const auto& m = parsed->get<edn::map>();
+
+    const auto* node_v = m.find_kw("node-id");
+    const auto* path_v = m.find_kw("wasm-path");
+    if (!path_v)
+        return;
+
+    std::string node_id;
+    if (node_v && node_v->is<edn::keyword>())
+        node_id = std::string(node_v->get<edn::keyword>().name);
+
+    std::string wasm_path;
+    if (path_v->is<std::string>())
+        wasm_path = path_v->get<std::string>();
+    if (wasm_path.empty())
+        return;
+
+    bool ok = false;
+    if (cfg_.wasm_swap_fn) {
+        ok = cfg_.wasm_swap_fn(node_id, wasm_path);
+    } else {
+        std::fprintf(stderr,
+                     "[nomos-rt] msg_wasm_hot_swap: wasm_swap_fn not wired"
+                     " (node=%s path=%s)\n",
+                     node_id.c_str(), wasm_path.c_str());
+    }
+
+    const std::string resp =
+        ok ? "{:node-id :" + node_id + " :status :ok}"
+           : "{:node-id :" + node_id + " :status :error :reason \"swap not wired\"}";
+    ipc::write_message(conn_fd, ipc::msg_wasm_hot_swap, std::string_view(resp));
 }
 
 } // namespace nomos::rt
