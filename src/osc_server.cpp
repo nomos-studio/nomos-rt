@@ -10,6 +10,7 @@
 
 #include <cstring>
 #include <string_view>
+#include <vector>
 
 namespace nomos::rt {
 
@@ -34,6 +35,26 @@ namespace {
         return (n + 3) & ~std::size_t{3};
     }
 
+    // Build an OSC message with a single string argument.
+    // Used for /nous/endpoints response.
+    std::vector<uint8_t> build_osc_string_msg(const char* addr, const std::string& payload) {
+        const std::size_t addr_len    = std::strlen(addr) + 1;
+        const std::size_t addr_padded = pad4(addr_len);
+        // type tag string ",s\0" = 3 bytes → padded to 4
+        const std::size_t tags_padded = 4;
+        const std::size_t str_padded  = pad4(payload.size() + 1);
+
+        std::vector<uint8_t> pkt(addr_padded + tags_padded + str_padded, 0);
+        std::size_t          pos = 0;
+        std::memcpy(pkt.data() + pos, addr, addr_len);
+        pos += addr_padded;
+        pkt[pos]     = ',';
+        pkt[pos + 1] = 's'; // pkt[pos+2] and [pos+3] already 0
+        pos += tags_padded;
+        std::memcpy(pkt.data() + pos, payload.c_str(), payload.size() + 1);
+        return pkt;
+    }
+
 } // namespace
 
 osc_server::osc_server(uint16_t port, input_event_queue& queue) : port_(port), queue_(queue) {
@@ -41,6 +62,10 @@ osc_server::osc_server(uint16_t port, input_event_queue& queue) : port_(port), q
 
 osc_server::~osc_server() {
     stop();
+}
+
+void osc_server::set_dispatch(dispatch_fns fns) {
+    dispatch_fns_ = std::move(fns);
 }
 
 void osc_server::start() {
@@ -84,16 +109,50 @@ bool osc_server::running() const noexcept {
     return running_.load(std::memory_order_acquire);
 }
 
+void osc_server::push_endpoints() {
+    if (!dispatch_fns_.get_endpoints)
+        return;
+
+    sockaddr_in dest{};
+    bool        has;
+    {
+        std::lock_guard<std::mutex> lk(sender_mutex_);
+        has  = has_sender_;
+        dest = last_sender_;
+    }
+    if (!has)
+        return;
+
+    const std::string paths = dispatch_fns_.get_endpoints();
+    const auto        pkt   = build_osc_string_msg("/nous/endpoints", paths);
+    send_udp(dest, pkt.data(), pkt.size());
+}
+
 void osc_server::run() {
     constexpr std::size_t k_buf = 1500;
     uint8_t               buf[k_buf];
+    sockaddr_in           sender{};
+    socklen_t             sender_len = sizeof(sender);
 
     while (running_.load(std::memory_order_acquire)) {
-        const ssize_t n = ::recv(sock_, buf, sizeof(buf), 0);
+        const ssize_t n = ::recvfrom(sock_, buf, sizeof(buf), 0,
+                                     reinterpret_cast<sockaddr*>(&sender), &sender_len);
         if (n <= 0)
             continue; // timeout or error; re-check running flag
+
+        {
+            std::lock_guard<std::mutex> lk(sender_mutex_);
+            last_sender_ = sender;
+            has_sender_  = true;
+        }
         handle_packet(buf, static_cast<std::size_t>(n));
     }
+}
+
+void osc_server::send_udp(const sockaddr_in& dest, const uint8_t* data, std::size_t len) noexcept {
+    if (sock_ < 0 || len == 0)
+        return;
+    ::sendto(sock_, data, len, 0, reinterpret_cast<const sockaddr*>(&dest), sizeof(dest));
 }
 
 void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
@@ -120,6 +179,8 @@ void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
     const std::string_view types{tags_cstr + 1, tags_len - 1}; // skip ','
     const uint8_t*         args  = buf + args_off;
     const std::size_t      avail = (args_off < len) ? len - args_off : 0;
+
+    // ---- Static routes -------------------------------------------------------
 
     if (address == "/nous/note/on" && types == "iiif" && avail >= 16) {
         clap_event_union ev{};
@@ -161,6 +222,27 @@ void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
         ev.midi.data[1]         = static_cast<uint8_t>(osc_int32(args + 8));
         ev.midi.data[2]         = static_cast<uint8_t>(osc_int32(args + 12));
         queue_.push(ev);
+
+        // ---- Pull endpoint -------------------------------------------------------
+
+    } else if (address == "/nous/endpoints") {
+        if (!dispatch_fns_.get_endpoints)
+            return;
+        sockaddr_in dest{};
+        {
+            std::lock_guard<std::mutex> lk(sender_mutex_);
+            if (!has_sender_)
+                return;
+            dest = last_sender_;
+        }
+        const std::string paths = dispatch_fns_.get_endpoints();
+        const auto        pkt   = build_osc_string_msg("/nous/endpoints", paths);
+        send_udp(dest, pkt.data(), pkt.size());
+
+        // ---- Fennel dispatch fallthrough -----------------------------------------
+
+    } else if (dispatch_fns_.dispatch) {
+        dispatch_fns_.dispatch(address, types, args, avail);
     }
 }
 

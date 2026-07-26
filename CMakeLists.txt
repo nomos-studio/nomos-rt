@@ -29,6 +29,7 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
 # ---------------------------------------------------------------------------
 
 option(NOMOS_RT_BUILD_TESTS "Build nomos-rt unit tests" OFF)
+option(NOMOS_RT_BUILD_TOOLS "Build nomos-rt standalone tools (nomos-mcp)" OFF)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -208,6 +209,34 @@ target_link_libraries(nomos-rt
         rtaudio
 )
 
+# --- LuaJIT + Fennel (optional) ----------------------------------------------
+# When found, luajit_participant is compiled in and the Fennel REPL path for
+# msg_repl_eval becomes active.  Set NOMOS_RT_LUAJIT_PATH to override the
+# pkg-config search (e.g. a vendored LuaJIT install).
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(LUAJIT QUIET luajit)
+endif()
+if(LUAJIT_FOUND)
+    # Resolve to an absolute path so consumers (kairos, tests) inherit the
+    # link dependency without needing INTERFACE_LINK_DIRECTORIES propagation.
+    # pkg_check_modules PRIVATE would only wire the path for nomos-rt itself;
+    # since we're a static library the final link happens in the consumer, so
+    # the dependency must be PUBLIC.
+    find_library(LUAJIT_LIBRARY
+        NAMES ${LUAJIT_LIBRARIES}
+        HINTS ${LUAJIT_LIBRARY_DIRS}
+        REQUIRED)
+    message(STATUS "nomos-rt: LuaJIT found — Fennel REPL enabled (${LUAJIT_LIBRARY})")
+    target_sources(nomos-rt PRIVATE src/luajit_participant.cpp)
+    target_compile_definitions(nomos-rt PRIVATE NOMOS_RT_HAS_LUAJIT=1)
+    target_include_directories(nomos-rt PRIVATE ${LUAJIT_INCLUDE_DIRS})
+    target_link_libraries(nomos-rt PUBLIC "${LUAJIT_LIBRARY}")
+else()
+    message(STATUS "nomos-rt: LuaJIT not found — compiling stub luajit_participant")
+    target_sources(nomos-rt PRIVATE src/luajit_participant.cpp)
+endif()
+
 nomos_sanitize_target(nomos-rt)
 
 set_target_properties(nomos-rt PROPERTIES
@@ -236,6 +265,17 @@ add_library(nomos::rt-exe-headers ALIAS nomos-rt-exe-headers)
 target_include_directories(nomos-rt-exe-headers INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
+
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
+
+if(NOMOS_RT_BUILD_TOOLS)
+    add_executable(nomos-mcp tools/nomos-mcp.cpp)
+    target_compile_features(nomos-mcp PRIVATE cxx_std_20)
+    target_compile_options(nomos-mcp PRIVATE -Wall -Wextra)
+    install(TARGETS nomos-mcp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 
 # ---------------------------------------------------------------------------
 # Tests

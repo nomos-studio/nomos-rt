@@ -65,6 +65,16 @@ constexpr uint8_t msg_midi_diag =
     0x54; // EDN {:bytes [b0 b1 …]} — pushed by aion on every MIDI output send,
           // before bytes reach RtMidi; fires even with no port open (CI path)
 
+constexpr uint8_t msg_repl_eval =
+    0x55; // EDN {:dest :fennel|:nous|:vcvrack-tty :payload "…" :id "…"}
+          // → routed eval; response pushed back as msg_repl_eval (socket) or
+          //   msg_repl_eval_response (VCVRack tty_sink path).
+          //   {:id "…" :result <edn-value>} or {:id "…" :error "…"}
+
+constexpr uint8_t msg_repl_eval_response =
+    0x56; // EDN {:result <val> :error nil|"…"} — pushed to VCVRack TTY screen
+          // via tty_sink → VCVBridgeModule → shm → TtyModule::parse_ctrl_response
+
 // Header layout.  Laid out for direct memcpy from the wire; fields in network
 // byte order (big-endian) — callers must byte-swap payload_len on little-endian
 // hosts.

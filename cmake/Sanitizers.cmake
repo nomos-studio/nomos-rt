@@ -88,4 +88,11 @@ target_link_options(   _nomos_sanitizer_flags INTERFACE ${_san_link})
 # on a target not included in the install(EXPORT ...) set.
 function(nomos_sanitize_target target)
     target_compile_options(${target} PRIVATE ${_san_compile})
+    # target_link_options (raw flags, not a target name) is safe to set on both
+    # static and shared library targets — the archiver ignores it for static libs,
+    # and it does not trigger CMake export-set errors the way target_link_libraries
+    # against a named sanitizer target would.
+    if(_san_link)
+        target_link_options(${target} PRIVATE ${_san_link})
+    endif()
 endfunction()
