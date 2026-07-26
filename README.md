@@ -231,6 +231,14 @@ SQLite3 is required as a system package (`find_package(SQLite3 REQUIRED)`).
 
 **Licence note:** Ableton Link is GPL-2.0-or-later. nomos-rt is LGPL-2.1-or-later at the library level, but any executable that links `nomos::rt` is GPL-2.0-or-later at the binary level due to the Link dependency.
 
+## Protocol
+
+nomos-rt exposes a framed-EDN IPC protocol to its clients (nous, aion, kairos) —
+opcodes, wire framing, and per-message payloads are specified in
+[`doc/protocol-ipc.md`](doc/protocol-ipc.md) (normative source:
+`include/nomos/rt/ipc.hpp`). It is part of the nomos-studio
+[component-boundaries index](../nomos-studio/doc/component-boundaries.md).
+
 ## Licence
 
 LGPL-2.1-or-later. See [`LICENSES/`](LICENSES/) for full texts.
