@@ -155,6 +155,36 @@ void osc_server::send_udp(const sockaddr_in& dest, const uint8_t* data, std::siz
     ::sendto(sock_, data, len, 0, reinterpret_cast<const sockaddr*>(&dest), sizeof(dest));
 }
 
+bool osc_server::send_osc(std::string_view host, uint16_t port, std::string_view address,
+                          const osc::arg* args, std::size_t n) noexcept {
+    if (sock_ < 0)
+        return false;
+
+    // Resolve the destination. Accept dotted-quad and "localhost"; hostname
+    // lookup (getaddrinfo) is out of scope — nous resolves to an IP.
+    sockaddr_in dest{};
+    dest.sin_family = AF_INET;
+    dest.sin_port   = htons(port);
+
+    char host_z[64];
+    if (host.size() >= sizeof(host_z))
+        return false;
+    std::memcpy(host_z, host.data(), host.size());
+    host_z[host.size()] = '\0';
+    const char* host_c  = (host == "localhost") ? "127.0.0.1" : host_z;
+    if (::inet_pton(AF_INET, host_c, &dest.sin_addr) != 1)
+        return false;
+
+    // Encode to a fixed-capacity buffer — a control message that overflows this
+    // is rejected rather than allocating on the send path.
+    small_vector<uint8_t, 512> pkt;
+    if (!osc::encode(pkt, address, args, n))
+        return false;
+
+    send_udp(dest, pkt.data(), pkt.size());
+    return true;
+}
+
 void osc_server::handle_packet(const uint8_t* buf, std::size_t len) noexcept {
     if (len < 8)
         return;

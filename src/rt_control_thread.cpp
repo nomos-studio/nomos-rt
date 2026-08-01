@@ -29,6 +29,11 @@
 
 #include "luajit_participant.hpp"
 #include "midi_io.hpp"
+#include "osc_server.hpp"
+
+#include <nomos/rt/osc_encode.hpp>
+
+#include <vector>
 
 #include <array>
 #include <cerrno>
@@ -1163,6 +1168,53 @@ void rt_control_thread::dispatch_message(int conn_fd, const ipc::message& msg,
             device_id = static_cast<uint8_t>(dev_v->get<int64_t>() & 0x7F);
 
         cfg_.midi->send(mts_bulk_dump(tuning, prog, device_id));
+        break;
+    }
+
+    case ipc::msg_osc: {
+        // {:host "…" :port N :address "…" :args [v0 v1 …]} — send an OSC message
+        // to an external endpoint. Arg types inferred from EDN: int64→i32,
+        // double→f32, string→OSC-string. Off the audio thread, so the direct
+        // osc_server::send_osc (a synchronous sendto) is safe, like msg_cc.
+        if (!cfg_.osc || msg.payload.empty())
+            break;
+        const std::string_view text{reinterpret_cast<const char*>(msg.payload.data()),
+                                    msg.payload.size()};
+        auto                   parsed = edn::parse(text);
+        if (!parsed || !parsed->is<edn::map>())
+            break;
+        const auto& m      = parsed->get<edn::map>();
+        const auto* host_v = m.find_kw("host");
+        const auto* port_v = m.find_kw("port");
+        const auto* addr_v = m.find_kw("address");
+        const auto* args_v = m.find_kw("args");
+        if (!addr_v || !addr_v->is<std::string>() || !port_v || !port_v->is<int64_t>())
+            break;
+        const std::string  host = (host_v && host_v->is<std::string>()) ? host_v->get<std::string>()
+                                                                        : std::string{"127.0.0.1"};
+        const std::string& address = addr_v->get<std::string>();
+        const uint16_t     port    = static_cast<uint16_t>(port_v->get<int64_t>() & 0xFFFF);
+
+        // Build the arg list. String args are copied into `strings` so the
+        // string_views in `args` remain valid across the send_osc call.
+        std::vector<osc::arg>    args;
+        std::vector<std::string> strings;
+        if (args_v && args_v->is<edn::vector>()) {
+            const auto& items = args_v->get<edn::vector>().items;
+            args.reserve(items.size());
+            strings.reserve(items.size());
+            for (const auto& it : items) {
+                if (it.is<int64_t>())
+                    args.push_back(osc::arg::make_i(static_cast<int32_t>(it.get<int64_t>())));
+                else if (it.is<double>())
+                    args.push_back(osc::arg::make_f(static_cast<float>(it.get<double>())));
+                else if (it.is<std::string>()) {
+                    strings.push_back(it.get<std::string>());
+                    args.push_back(osc::arg::make_s(strings.back()));
+                }
+            }
+        }
+        cfg_.osc->send_osc(host, port, address, args.data(), args.size());
         break;
     }
 

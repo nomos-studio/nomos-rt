@@ -75,6 +75,13 @@ constexpr uint8_t msg_repl_eval_response =
     0x56; // EDN {:result <val> :error nil|"…"} — pushed to VCVRack TTY screen
           // via tty_sink → VCVBridgeModule → shm → TtyModule::parse_ctrl_response
 
+constexpr uint8_t msg_osc =
+    0x57; // EDN {:host "…" :port N :address "…" :args [v0 v1 …]} — send an OSC
+          // message to an external UDP endpoint (immediate). Arg types inferred
+          // from EDN: int64→i32, double→f32, string→OSC-string. Routed through
+          // the node's osc_server so scheduled/immediate OSC gains the same
+          // GC-immunity + node-agnostic delivery as MIDI-out.
+
 // Header layout.  Laid out for direct memcpy from the wire; fields in network
 // byte order (big-endian) — callers must byte-swap payload_len on little-endian
 // hosts.

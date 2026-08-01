@@ -2,6 +2,7 @@
 #pragma once
 
 #include <nomos/rt/input_event.hpp>
+#include <nomos/rt/osc_encode.hpp>
 
 #include <netinet/in.h>
 
@@ -63,6 +64,16 @@ class osc_server {
     // Called from the Fennel nomos_osc_push_endpoints binding (via osc.register).
     // Safe to call from any thread.
     void push_endpoints();
+
+    // Send an OSC message to an external UDP endpoint (outbound).
+    // Encodes address + args to the wire, resolves host:port (dotted-quad or
+    // "localhost"), and sends via the server socket. Called from the control
+    // thread on msg_osc — like msg_cc's direct midi->send(), this is off the
+    // audio thread, so the synchronous sendto() is safe. Returns false if the
+    // socket is closed, the host is unresolvable, or the message overflows the
+    // encode buffer. Safe to call from any thread once start() has run.
+    bool send_osc(std::string_view host, uint16_t port, std::string_view address,
+                  const osc::arg* args, std::size_t n) noexcept;
 
   private:
     void run();

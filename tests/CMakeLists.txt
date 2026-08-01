@@ -22,6 +22,7 @@ add_executable(nomos-rt-tests
     test_spsc_queue.cpp
     test_small_vector.cpp
     test_osc_encode.cpp
+    test_osc_output.cpp
     test_time_identity.cpp
     test_faust_modulator.cpp
 )
