@@ -20,6 +20,8 @@ add_executable(nomos-rt-tests
     test_genie_modulator.cpp
     test_lets_splosh_modulator.cpp
     test_spsc_queue.cpp
+    test_small_vector.cpp
+    test_osc_encode.cpp
     test_time_identity.cpp
     test_faust_modulator.cpp
 )
