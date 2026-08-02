@@ -63,6 +63,14 @@ Opcodes are grouped by concern. "Dir" is the usual direction: **→rt** = client
 nomos-rt (command); **→client** = nomos-rt pushed to connected clients (telemetry/
 response). Payloads shown are the EDN shapes from the header comments.
 
+**Core vs node extensions.** The base `rt_control_thread` handles the shared vocabulary
+(sessions, notes, MIDI/OSC out, scheduling, modulators, telemetry). Node-specific opcodes
+are handled by a `dispatch_extension` override in the node's `rt_control_thread` subclass:
+**kairos** (`kairos::control_thread`) handles the plugin-graph / WASM opcodes; **aion**
+(`aion_control_thread`) handles `msg_route_set`. Exactly one node runs in a given
+deployment, and external MIDI/OSC out is delivered by the shared substrate either way, so
+clients need not know which node is present.
+
 ### Session & sources (`0x30`–`0x33`)
 | Op | Name | Dir | Payload |
 |----|------|-----|---------|
@@ -99,7 +107,7 @@ response). Payloads shown are the EDN shapes from the header comments.
 ### Scheduling & modulators (`0x45`–`0x48`)
 | Op | Name | Dir | Payload |
 |----|------|-----|---------|
-| `0x45` | `msg_schedule_bundle` | →rt | EDN `{:at-beat D :events [{:at-tick N :type :note-on/:note-off :key K ...}]}` |
+| `0x45` | `msg_schedule_bundle` | →rt | EDN `{:at-beat D :events [ev …]}`. Each `ev` is a **note** — `{:at-tick N :type :note-on/:note-off :key K :velocity …}` — or an **OSC datagram** — `{:at-tick N :type :osc :host :port :address :args [...]}`. Notes and OSC may be mixed in one bundle; the same `:at-tick` fires on the same tick. Each event's beat = `:at-beat + :at-tick / 24.0`. |
 | `0x46` | `msg_modulator_start` | →rt | EDN `{:id :kw :type :slope\|... + params}` |
 | `0x47` | `msg_modulator_stop` | →rt | EDN `{:id :kw}` |
 | `0x48` | `msg_modulator_update` | →rt | EDN `{:id :kw :key "rate" :value 0.5}` |
@@ -118,7 +126,7 @@ response). Payloads shown are the EDN shapes from the header comments.
 |----|------|-----|---------|
 | `0x50` | `msg_tick` | →client | EDN `{:beat D :tick-n N :mods {:id {:cv F :aux F :gate B :gate2 B} ...}}` — each 24 PPQN tick; `:mods` omitted when empty |
 | `0x51` | `msg_midi_event` | →client | EDN `{:port N :channel N :data [status b1 b2]}` — pushed by aion on hardware MIDI in |
-| `0x52` | `msg_route_set` | →rt | EDN `{:midi-routes [...] :mod-routes [...]}` — replace the aion routing matrix. **No C++ handler yet** (route-table push not wired; consumers resolve routing client-side) |
+| `0x52` | `msg_route_set` | →rt | EDN `{:midi-routes [...] :mod-routes [...]}` — replace the aion routing matrix. Handled by `aion_control_thread::dispatch_extension` (a node extension), which applies it to the `RoutingMatrix` |
 | `0x54` | `msg_midi_diag` | →client | EDN `{:bytes [...]}` — pushed by aion on every MIDI-out send, before RtMidi (fires with no port open — CI path) |
 
 ### Routed REPL eval (`0x55`–`0x56`)
@@ -127,9 +135,14 @@ response). Payloads shown are the EDN shapes from the header comments.
 | `0x55` | `msg_repl_eval` | ↔ | EDN `{:dest :fennel\|:nous\|:vcvrack-tty :payload "…" :id "…"}` — routed eval; response returns as `msg_repl_eval` (socket) or `msg_repl_eval_response` (VCVRack tty path). Result: `{:id "…" :result <edn>}` or `{:id "…" :error "…"}` |
 | `0x56` | `msg_repl_eval_response` | →client | EDN `{:result <val> :error nil\|"…"}` — pushed to the VCVRack TTY screen |
 
-> The `0x00`–`0x2F` range is the original sidecar (aion) opcode block that `0x30+`
-> extends. It is defined separately from `ipc.hpp` and is not enumerated here;
-> document it alongside the sidecar when that boundary is specified.
+### OSC out (`0x57`)
+| Op | Name | Dir | Payload |
+|----|------|-----|---------|
+| `0x57` | `msg_osc` | →rt | EDN `{:host "…" :port N :address "…" :args [v0 v1 …]}` — send an OSC message to an external UDP endpoint **immediately**. Arg types are inferred from EDN: int→`i32`, float→`f32`, string→OSC-string. The node encodes the datagram and sends it via its `osc_server`, so OSC output rides the RT substrate like MIDI-out — GC-immune and node-agnostic (whichever node runs delivers it). The **beat-scheduled** form is an `:osc` event inside `msg_schedule_bundle` (`0x45`), which fires at an exact Link beat on the RT thread, in sync with co-scheduled notes. |
+
+> The `0x00`–`0x2F` range is unused — a vestige of pre-`nomos-rt` (cljseq-rt) numbering.
+> No opcodes are defined there; the vocabulary begins at `0x30`. The range is left free
+> and may be reclaimed later.
 
 ## Stability & versioning
 
