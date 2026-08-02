@@ -31,8 +31,17 @@ class event_scheduler {
     // Returns the staging queue to pass to rt_control_thread::config.
     sched_staging_queue& staging() noexcept { return staging_; }
 
+    // Wire the queue that fired OSC-kind events are routed to. When set, an
+    // osc scheduled_event is pushed here (a lock-free queue op — no encode, no
+    // sendto) rather than delivered via the tick callback; an IO/sender thread
+    // drains it to osc_server::send_event. Null = OSC events are dropped.
+    // Set once before tick() is first called.
+    void set_osc_out(osc_out_queue* q) noexcept { osc_out_ = q; }
+
     // Fire all events with beat <= current_beat.
-    // fn: (const clap_event_union&) → void, called in beat order.
+    // fn: (const clap_event_union&) → void — receives CLAP (note/MIDI) events
+    // in beat order. OSC-kind events do NOT reach fn; they go to osc_out_ (see
+    // set_osc_out), keeping the callback's contract unchanged.
     // Call once per audio block or event-loop iteration.
     template <typename F> void tick(double current_beat, F&& fn) {
         // Drain new arrivals from the control thread into our local list.
@@ -49,7 +58,14 @@ class event_scheduler {
 
         auto it = pending_.begin();
         while (it != pending_.end() && it->beat <= current_beat) {
-            fn(it->event);
+            if (it->kind == sched_kind::osc) {
+                // RT-safe: enqueue for the sender thread. Dropped if unwired or
+                // the queue is full — never sends from this (possibly audio) thread.
+                if (osc_out_)
+                    osc_out_->push(it->osc);
+            } else {
+                fn(it->event);
+            }
             ++it;
         }
         pending_.erase(pending_.begin(), it);
@@ -62,6 +78,7 @@ class event_scheduler {
   private:
     sched_staging_queue          staging_;
     std::vector<scheduled_event> pending_;
+    osc_out_queue*               osc_out_{nullptr};
 };
 
 } // namespace nomos::rt

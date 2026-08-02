@@ -3,6 +3,7 @@
 
 #include <nomos/rt/input_event.hpp>
 #include <nomos/rt/osc_encode.hpp>
+#include <nomos/rt/osc_event.hpp>
 
 #include <netinet/in.h>
 
@@ -74,6 +75,14 @@ class osc_server {
     // encode buffer. Safe to call from any thread once start() has run.
     bool send_osc(std::string_view host, uint16_t port, std::string_view address,
                   const osc::arg* args, std::size_t n) noexcept;
+
+    // Send a pre-resolved, pre-encoded OSC datagram (built on the control
+    // thread; see build_osc_event). This is the drain endpoint for the
+    // scheduler's osc_out_queue — the IO/sender thread calls it, keeping sendto
+    // off the audio thread. Safe to call from any thread once start() has run.
+    void send_event(const osc_event& ev) noexcept {
+        send_udp(ev.dest, ev.bytes.data(), ev.bytes.size());
+    }
 
   private:
     void run();
