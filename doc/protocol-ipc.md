@@ -140,6 +140,11 @@ clients need not know which node is present.
 |----|------|-----|---------|
 | `0x57` | `msg_osc` | →rt | EDN `{:host "…" :port N :address "…" :args [v0 v1 …]}` — send an OSC message to an external UDP endpoint **immediately**. Arg types are inferred from EDN: int→`i32`, float→`f32`, string→OSC-string. The node encodes the datagram and sends it via its `osc_server`, so OSC output rides the RT substrate like MIDI-out — GC-immune and node-agnostic (whichever node runs delivers it). The **beat-scheduled** form is an `:osc` event inside `msg_schedule_bundle` (`0x45`), which fires at an exact Link beat on the RT thread, in sync with co-scheduled notes. |
 
+### Analysis taps (`0x58`)
+| Op | Name | Dir | Payload |
+|----|------|-----|---------|
+| `0x58` | `msg_tap` | →client | EDN `{:epoch N :taps {:name value …}}` — pushed by the node draining the kairos **tap bus** (`CLAP_EXT_KAIROS_TAP_BUS`): named analysis/probe values (spectral peaks, envelope, level, tuner cents) that a plugin exposes. Values are **snapshotted on the audio thread** (right after `process()`, into a lock-free queue — RT-safe, never read cross-thread), then a telemetry thread joins them with the tap-schema names, builds the EDN, and pushes at **`tap-push-rate-hz`** (§25 config, default 30 Hz). `:epoch` tracks schema generation (increments on graph reload); `:taps` is empty when no tap bus is present. Clients land the values on `[:tap …]` ctrl-tree paths — the studio observing its own signal state (the input-side dual of the ctrl-tree → nomos-rt output mount). See `nomos-studio/plans/tap-ipc-bridge-design.md`. |
+
 > The `0x00`–`0x2F` range is unused — a vestige of pre-`nomos-rt` (cljseq-rt) numbering.
 > No opcodes are defined there; the vocabulary begins at `0x30`. The range is left free
 > and may be reclaimed later.

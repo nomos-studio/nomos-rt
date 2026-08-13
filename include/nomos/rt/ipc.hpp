@@ -82,6 +82,15 @@ constexpr uint8_t msg_osc =
           // the node's osc_server so scheduled/immediate OSC gains the same
           // GC-immunity + node-agnostic delivery as MIDI-out.
 
+constexpr uint8_t msg_tap =
+    0x58; // EDN {:epoch N :taps {:name value …}} — pushed by the node draining the
+          // kairos tap bus (CLAP_EXT_KAIROS_TAP_BUS): named analysis/probe values
+          // (spectral peaks, envelope, level, tuner cents) sampled on the audio
+          // thread, joined with the tap schema names, throttled to
+          // tap-push-rate-hz. Consumers land it on [:tap …] ctrl-tree paths —
+          // the studio observing its own signal state. :epoch tracks schema
+          // generation; taps map is empty when no tap bus is present.
+
 // Header layout.  Laid out for direct memcpy from the wire; fields in network
 // byte order (big-endian) — callers must byte-swap payload_len on little-endian
 // hosts.
